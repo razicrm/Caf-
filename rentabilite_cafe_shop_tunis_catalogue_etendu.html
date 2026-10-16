@@ -1,0 +1,1101 @@
+<!DOCTYPE html>
+<html lang="fr" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simulateur de Rentabilité v3.0 - Café Shop & Crêperie Tunis</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        amber: {
+                            50: '#fffbeb',
+                            100: '#fef3c7',
+                            400: '#fbbf24',
+                            500: '#f59e0b',
+                            600: '#d97706',
+                            700: '#b45309',
+                            900: '#78350f',
+                        },
+                        stone: {
+                            800: '#262626',
+                            850: '#1f1f1f',
+                            900: '#171717',
+                            950: '#0a0a0a',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        /* Custom range slider styling */
+        input[type=range] {
+            -webkit-appearance: none;
+            background: #374151;
+            height: 6px;
+            border-radius: 3px;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 16px;
+            width: 16px;
+            border-radius: 50%;
+            background: #f59e0b;
+            cursor: pointer;
+            box-shadow: 0 0 8px rgba(245, 158, 11, 0.5);
+            transition: all 0.15s ease-in-out;
+        }
+        input[type=range]::-webkit-slider-thumb:hover {
+            transform: scale(1.2);
+            background: #fbbf24;
+        }
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+        @media print {
+            body { background-color: #ffffff !important; color: #111827 !important; }
+            aside, header button, .no-print { display: none !important; }
+            main { padding: 0 !important; max-width: 100% !important; }
+            .bg-stone-900, .bg-stone-950 { background-color: #ffffff !important; border-color: #e5e7eb !important; color: #111827 !important; }
+            .text-amber-400, .text-amber-500, .text-emerald-400, .text-blue-400 { color: #b45309 !important; }
+            .tab-pane { display: block !important; page-break-after: always; }
+        }
+    </style>
+</head>
+<body class="bg-stone-950 text-stone-100 font-sans min-h-screen flex flex-col selection:bg-amber-500 selection:text-stone-950">
+
+    <!-- Top Header Navigation -->
+    <header class="bg-stone-900/90 border-b border-stone-800 sticky top-0 z-50 backdrop-blur-md no-print">
+        <div class="max-w-full mx-auto px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between gap-4">
+            <div class="flex items-center gap-3">
+                <button onclick="toggleSidebarCollapse()" title="Réduire/Agrandir le menu" class="p-2 rounded-xl text-stone-300 hover:text-white bg-stone-800 hover:bg-stone-700 border border-stone-700 transition-all">
+                    <svg id="collapse-icon" class="w-5 h-5 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 19l-7-7 7-7m8 14l-7-7 7-7"></path></svg>
+                </button>
+                <div class="p-2 bg-amber-500/10 border border-amber-500/30 rounded-xl text-amber-500 text-xl hidden sm:block">
+                    ☕
+                </div>
+                <div>
+                    <div class="flex items-center gap-2">
+                        <h1 class="text-base sm:text-xl font-bold bg-gradient-to-r from-amber-400 to-amber-600 bg-clip-text text-transparent">
+                            Café Shop & Crêperie Tunis
+                        </h1>
+                        <span class="px-2 py-0.5 text-[10px] font-extrabold bg-amber-500/20 text-amber-400 border border-amber-500/40 rounded-full">v3.0 Pro</span>
+                    </div>
+                    <p class="text-xs text-stone-400 hidden sm:block">Modèle Financier Avancé avec Trésorerie, TVA, Capacité & Scénarios</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-2">
+                <button onclick="saveSimulationState()" class="px-3 py-1.5 text-xs font-medium text-stone-300 hover:text-white bg-stone-800 hover:bg-stone-700 border border-stone-700 rounded-lg transition-all flex items-center gap-1.5 shadow-sm">
+                    💾 <span class="hidden md:inline">Sauvegarder</span>
+                </button>
+                <button onclick="resetAllDefaults()" class="px-3 py-1.5 text-xs font-medium text-stone-300 hover:text-white bg-stone-800 hover:bg-stone-700 border border-stone-700 rounded-lg transition-all flex items-center gap-1.5 shadow-sm">
+                    🔄 <span class="hidden md:inline">Réinitialiser</span>
+                </button>
+                <button onclick="window.print()" class="px-3.5 py-1.5 text-xs font-semibold text-stone-950 bg-amber-500 hover:bg-amber-400 rounded-lg transition-all shadow-md shadow-amber-500/20 flex items-center gap-1.5">
+                    🖨️ <span class="hidden md:inline">Rapport & PDF</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Container with Collapsible Left Sidebar + Content -->
+    <div class="flex-grow flex w-full relative">
+
+        <!-- Left Sidebar Navigation -->
+        <aside id="sidebar" class="sticky top-[57px] h-[calc(100vh-57px)] bg-stone-900 border-r border-stone-800 transition-all duration-300 ease-in-out flex flex-col justify-between shrink-0 z-40 w-64 no-print">
+            <div class="p-3 space-y-1.5 overflow-y-auto no-scrollbar">
+                <span id="sidebar-label" class="text-[10px] font-bold uppercase tracking-wider text-stone-500 px-3 block mb-2">Modules v3.0</span>
+                
+                <button onclick="setActiveTab('tab-resultats')" id="btn-tab-resultats" class="tab-btn w-full text-left px-3 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all duration-200 bg-amber-500 text-stone-950 shadow-md shadow-amber-500/20 flex items-center gap-3">
+                    <span class="text-lg shrink-0">📊</span>
+                    <span class="sidebar-text truncate">1. Tableau de Bord & Synthèse</span>
+                </button>
+
+                <button onclick="setActiveTab('tab-capex')" id="btn-tab-capex" class="tab-btn w-full text-left px-3 py-2.5 rounded-xl text-xs sm:text-sm font-medium transition-all duration-200 text-stone-400 hover:text-stone-200 hover:bg-stone-800/60 flex items-center gap-3">
+                    <span class="text-lg shrink-0">🏗️</span>
+                    <span class="sidebar-text truncate">2. CAPEX & Financement</span>
+                </button>
+
+                <button onclick="setActiveTab('tab-produits')" id="btn-tab-produits" class="tab-btn w-full text-left px-3 py-2.5 rounded-xl text-xs sm:text-sm font-medium transition-all duration-200 text-stone-400 hover:text-stone-200 hover:bg-stone-800/60 flex items-center gap-3">
+                    <span class="text-lg shrink-0">🍕</span>
+                    <span class="sidebar-text truncate">3. Produits, TVA & Capacité</span>
+                </button>
+
+                <button onclick="setActiveTab('tab-rh')" id="btn-tab-rh" class="tab-btn w-full text-left px-3 py-2.5 rounded-xl text-xs sm:text-sm font-medium transition-all duration-200 text-stone-400 hover:text-stone-200 hover:bg-stone-800/60 flex items-center gap-3">
+                    <span class="text-lg shrink-0">👨‍🍳</span>
+                    <span class="sidebar-text truncate">4. RH & Charges Sociales</span>
+                </button>
+
+                <button onclick="setActiveTab('tab-charges')" id="btn-tab-charges" class="tab-btn w-full text-left px-3 py-2.5 rounded-xl text-xs sm:text-sm font-medium transition-all duration-200 text-stone-400 hover:text-stone-200 hover:bg-stone-800/60 flex items-center gap-3">
+                    <span class="text-lg shrink-0">⚡</span>
+                    <span class="sidebar-text truncate">5. Exploitation & Fixes</span>
+                </button>
+
+                <button onclick="setActiveTab('tab-saison')" id="btn-tab-saison" class="tab-btn w-full text-left px-3 py-2.5 rounded-xl text-xs sm:text-sm font-medium transition-all duration-200 text-stone-400 hover:text-stone-200 hover:bg-stone-800/60 flex items-center gap-3">
+                    <span class="text-lg shrink-0">📈</span>
+                    <span class="sidebar-text truncate">6. Montée en Charge & Mois</span>
+                </button>
+
+                <button onclick="setActiveTab('tab-tresorerie')" id="btn-tab-tresorerie" class="tab-btn w-full text-left px-3 py-2.5 rounded-xl text-xs sm:text-sm font-medium transition-all duration-200 text-stone-400 hover:text-stone-200 hover:bg-stone-800/60 flex items-center gap-3">
+                    <span class="text-lg shrink-0">💰</span>
+                    <span class="sidebar-text truncate">7. Trésorerie 12-36 Mois</span>
+                </button>
+
+                <button onclick="setActiveTab('tab-scenarios')" id="btn-tab-scenarios" class="tab-btn w-full text-left px-3 py-2.5 rounded-xl text-xs sm:text-sm font-medium transition-all duration-200 text-stone-400 hover:text-stone-200 hover:bg-stone-800/60 flex items-center gap-3">
+                    <span class="text-lg shrink-0">⚖️</span>
+                    <span class="sidebar-text truncate">8. Scénarios & Sensibilité</span>
+                </button>
+            </div>
+
+            <div id="sidebar-footer" class="p-3 border-t border-stone-800 text-[11px] text-stone-500 text-center">
+                <span class="sidebar-text">Tunis Pro v3.0 • TND</span>
+            </div>
+        </aside>
+
+        <!-- Main Content Area -->
+        <main class="flex-grow p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto w-full overflow-x-hidden">
+
+            <!-- ================= TAB 1: RESULTATS & DASHBOARD ================= -->
+            <section id="tab-resultats" class="tab-pane block space-y-8">
+                
+                <!-- Alerts Banner -->
+                <div id="alerts-container" class="space-y-2">
+                    <!-- Dynamic validation warnings -->
+                </div>
+
+                <!-- KPI Cards Grid -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div class="bg-stone-900 border border-stone-800 rounded-2xl p-5 shadow-lg relative overflow-hidden">
+                        <div class="absolute top-0 right-0 w-2 h-full bg-amber-500"></div>
+                        <span class="text-xs font-semibold uppercase tracking-wider text-stone-400">CA Net HT (An 1)</span>
+                        <p id="kpi-ca-annuel" class="text-2xl sm:text-3xl font-extrabold text-white mt-1">0 TND</p>
+                        <p id="kpi-ca-mensuel" class="text-xs font-medium text-amber-400 mt-2">Moyenne mensuelle: 0 TND</p>
+                    </div>
+
+                    <div class="bg-stone-900 border border-stone-800 rounded-2xl p-5 shadow-lg relative overflow-hidden">
+                        <div class="absolute top-0 right-0 w-2 h-full bg-emerald-500"></div>
+                        <span class="text-xs font-semibold uppercase tracking-wider text-stone-400">EBITDA Exploitation</span>
+                        <p id="kpi-ebitda" class="text-2xl sm:text-3xl font-extrabold text-emerald-400 mt-1">0 TND</p>
+                        <p id="kpi-marge-ebitda" class="text-xs font-medium text-stone-400 mt-2">Marge EBITDA: 0%</p>
+                    </div>
+
+                    <div class="bg-stone-900 border border-stone-800 rounded-2xl p-5 shadow-lg relative overflow-hidden">
+                        <div class="absolute top-0 right-0 w-2 h-full bg-blue-500"></div>
+                        <span class="text-xs font-semibold uppercase tracking-wider text-stone-400">Point Mort (Seuil Rentabilité)</span>
+                        <p id="kpi-point-mort" class="text-2xl sm:text-3xl font-extrabold text-blue-400 mt-1">0 TND</p>
+                        <p id="kpi-clients-req" class="text-xs font-medium text-stone-300 mt-2">≈ 0 tickets / jour requis</p>
+                    </div>
+
+                    <div class="bg-stone-900 border border-stone-800 rounded-2xl p-5 shadow-lg relative overflow-hidden">
+                        <div class="absolute top-0 right-0 w-2 h-full bg-amber-400"></div>
+                        <span class="text-xs font-semibold uppercase tracking-wider text-stone-400">Retour sur Investissement (ROI)</span>
+                        <p id="kpi-roi" class="text-2xl sm:text-3xl font-extrabold text-amber-400 mt-1">0 mois</p>
+                        <p id="kpi-net-annuel" class="text-xs font-medium text-stone-300 mt-2">Bénéfice Net An 1: 0 TND</p>
+                    </div>
+                </div>
+
+                <!-- Charts Section -->
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div class="bg-stone-900 border border-stone-800 rounded-2xl p-6 shadow-xl flex flex-col items-center">
+                        <h3 class="text-base font-bold text-amber-400 self-start mb-4">Répartition des Coûts & Dépenses</h3>
+                        <div class="w-full h-64 sm:h-72 relative">
+                            <canvas id="chartCharges"></canvas>
+                        </div>
+                    </div>
+
+                    <div class="bg-stone-900 border border-stone-800 rounded-2xl p-6 shadow-xl flex flex-col items-center">
+                        <h3 class="text-base font-bold text-amber-400 self-start mb-4">Trésorerie & Solde Mensuel sur 12 Mois</h3>
+                        <div class="w-full h-64 sm:h-72 relative">
+                            <canvas id="chartCashflow"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Income Statement Table -->
+                <div class="bg-stone-900 border border-stone-800 rounded-2xl p-6 shadow-xl space-y-4">
+                    <div class="flex flex-col sm:flex-row justify-between sm:items-center gap-2 border-b border-stone-800 pb-4">
+                        <h3 class="text-lg font-bold text-amber-400">Compte de Résultat Prévisionnel & Fiscalité Tunisienne (IS + CSS)</h3>
+                        <span class="text-xs text-stone-500">Calculé en TND (HT & TVA dissociées)</span>
+                    </div>
+                    
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left text-xs sm:text-sm">
+                            <thead>
+                                <tr class="border-b border-stone-800 text-stone-400 font-semibold uppercase tracking-wider">
+                                    <th class="py-3 px-3">Poste Financier</th>
+                                    <th class="py-3 px-3 text-right">Moyenne Mensuelle</th>
+                                    <th class="py-3 px-3 text-right">Total Annuel (An 1)</th>
+                                    <th class="py-3 px-3 text-right">% du CA HT</th>
+                                </tr>
+                            </thead>
+                            <tbody id="table-income-statement" class="divide-y divide-stone-800/60 font-medium">
+                                <!-- Populated dynamically -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+            </section>
+
+            <!-- ================= TAB 2: CAPEX & FINANCEMENT ================= -->
+            <section id="tab-capex" class="tab-pane hidden space-y-6">
+                <div class="bg-stone-900 border border-stone-800 rounded-2xl p-6 sm:p-8 shadow-xl space-y-6">
+                    <div class="border-b border-stone-800 pb-4 flex justify-between items-center flex-wrap gap-4">
+                        <div>
+                            <h2 class="text-xl font-bold text-amber-400">2. Investissement Initial (CAPEX) & Plan de Financement</h2>
+                            <p class="text-sm text-stone-400 mt-1">Équipements, travaux, caution, apport personnel et crédit bancaire.</p>
+                        </div>
+                        <div class="p-3 bg-stone-950 border border-amber-500/30 rounded-xl text-right">
+                            <span class="text-xs text-stone-400 block">Total Investissement (CAPEX) :</span>
+                            <span id="total-capex" class="text-xl font-extrabold text-amber-400">0 TND</span>
+                        </div>
+                    </div>
+
+                    <!-- CAPEX Details Accordions / Inputs -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <!-- Matériel -->
+                        <div class="bg-stone-950/60 p-5 rounded-xl border border-stone-800 space-y-3">
+                            <h3 class="font-bold text-amber-400 text-sm border-b border-stone-800 pb-2">🛠️ Équipements & Barista Pro</h3>
+                            <div class="space-y-3">
+                                <div>
+                                    <div class="flex justify-between text-xs mb-1"><label>Machine Espresso Pro :</label><input type="number" id="num-capex-machine" class="w-24 bg-stone-900 text-amber-400 text-right px-2 py-0.5 rounded border border-stone-700 text-xs" oninput="syncInput('capex-machine', this.value)"></div>
+                                    <input type="range" id="capex-machine" min="0" max="35000" step="500" value="12000" class="w-full" oninput="syncRange('capex-machine', this.value)">
+                                </div>
+                                <div>
+                                    <div class="flex justify-between text-xs mb-1"><label>Moulins, Crêpières & Gaufriers :</label><input type="number" id="num-capex-cuisine" class="w-24 bg-stone-900 text-amber-400 text-right px-2 py-0.5 rounded border border-stone-700 text-xs" oninput="syncInput('capex-cuisine', this.value)"></div>
+                                    <input type="range" id="capex-cuisine" min="0" max="25000" step="500" value="8000" class="w-full" oninput="syncRange('capex-cuisine', this.value)">
+                                </div>
+                                <div>
+                                    <div class="flex justify-between text-xs mb-1"><label>Frigos, Vitrines & Glaçons :</label><input type="number" id="num-capex-froid" class="w-24 bg-stone-900 text-amber-400 text-right px-2 py-0.5 rounded border border-stone-700 text-xs" oninput="syncInput('capex-froid', this.value)"></div>
+                                    <input type="range" id="capex-froid" min="0" max="30000" step="500" value="11000" class="w-full" oninput="syncRange('capex-froid', this.value)">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Travaux & Mobilier -->
+                        <div class="bg-stone-950/60 p-5 rounded-xl border border-stone-800 space-y-3">
+                            <h3 class="font-bold text-amber-400 text-sm border-b border-stone-800 pb-2">🎨 Travaux, Déco & Mobilier</h3>
+                            <div class="space-y-3">
+                                <div>
+                                    <div class="flex justify-between text-xs mb-1"><label>Aménagement, Peinture & Climatisation :</label><input type="number" id="num-capex-travaux" class="w-24 bg-stone-900 text-amber-400 text-right px-2 py-0.5 rounded border border-stone-700 text-xs" oninput="syncInput('capex-travaux', this.value)"></div>
+                                    <input type="range" id="capex-travaux" min="0" max="50000" step="1000" value="25000" class="w-full" oninput="syncRange('capex-travaux', this.value)">
+                                </div>
+                                <div>
+                                    <div class="flex justify-between text-xs mb-1"><label>Comptoir, Tables & Terrasse :</label><input type="number" id="num-capex-mobilier" class="w-24 bg-stone-900 text-amber-400 text-right px-2 py-0.5 rounded border border-stone-700 text-xs" oninput="syncInput('capex-mobilier', this.value)"></div>
+                                    <input type="range" id="capex-mobilier" min="0" max="30000" step="500" value="15000" class="w-full" oninput="syncRange('capex-mobilier', this.value)">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Caution & BFR (Non Amortissables en charges d'exploitation) -->
+                        <div class="bg-stone-950/60 p-5 rounded-xl border border-stone-800 space-y-3 md:col-span-2">
+                            <h3 class="font-bold text-amber-400 text-sm border-b border-stone-800 pb-2">📑 Caution, Juridique, POS & BFR (Non Amortissables)</h3>
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <div>
+                                    <div class="flex justify-between text-xs mb-1"><label>Caution Loyer (Récupérable) :</label><input type="number" id="num-capex-caution" class="w-24 bg-stone-900 text-amber-400 text-right px-2 py-0.5 rounded border border-stone-700 text-xs" oninput="syncInput('capex-caution', this.value)"></div>
+                                    <input type="range" id="capex-caution" min="0" max="50000" step="500" value="15000" class="w-full" oninput="syncRange('capex-caution', this.value)">
+                                </div>
+                                <div>
+                                    <div class="flex justify-between text-xs mb-1"><label>Stock Initial & Emballages (BFR) :</label><input type="number" id="num-capex-stock" class="w-24 bg-stone-900 text-amber-400 text-right px-2 py-0.5 rounded border border-stone-700 text-xs" oninput="syncInput('capex-stock', this.value)"></div>
+                                    <input type="range" id="capex-stock" min="0" max="30000" step="500" value="7000" class="w-full" oninput="syncRange('capex-stock', this.value)">
+                                </div>
+                                <div>
+                                    <div class="flex justify-between text-xs mb-1"><label>Frais Juridiques, POS & Licences :</label><input type="number" id="num-capex-frais" class="w-24 bg-stone-900 text-amber-400 text-right px-2 py-0.5 rounded border border-stone-700 text-xs" oninput="syncInput('capex-frais', this.value)"></div>
+                                    <input type="range" id="capex-frais" min="0" max="15000" step="250" value="5000" class="w-full" oninput="syncRange('capex-frais', this.value)">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Financement Plan -->
+                    <div class="bg-stone-950/80 p-6 rounded-xl border border-amber-500/30 space-y-4">
+                        <h3 class="font-bold text-amber-400 text-base">Plan de Financement & Crédit Bancaire</h3>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            <div>
+                                <div class="flex justify-between text-xs mb-1"><label>Apport Personnel (Fonds propres) :</label><span id="disp-apport" class="font-bold text-amber-400">40 000 TND</span></div>
+                                <input type="range" id="input-apport" min="5000" max="150000" step="1000" value="40000" class="w-full" oninput="recalculateAll()">
+                            </div>
+                            <div>
+                                <div class="flex justify-between text-xs mb-1"><label>Taux d'Intérêt Bancaire (Annuel) :</label><span id="disp-taux-pret" class="font-bold text-amber-400">10.5 %</span></div>
+                                <input type="range" id="input-taux-pret" min="6" max="18" step="0.5" value="10.5" class="w-full" oninput="recalculateAll()">
+                            </div>
+                            <div>
+                                <div class="flex justify-between text-xs mb-1"><label>Durée du Crédit (Mois) :</label><span id="disp-duree-pret" class="font-bold text-amber-400">60 mois</span></div>
+                                <input type="range" id="input-duree-pret" min="12" max="84" step="12" value="60" class="w-full" oninput="recalculateAll()">
+                            </div>
+                        </div>
+                        <div class="flex justify-between items-center pt-3 border-t border-stone-800 text-sm">
+                            <span class="text-stone-300">Crédit Bancaire Nécessaire : <strong id="val-emprunt" class="text-white">0 TND</strong></span>
+                            <span class="text-stone-300">Mensualité du Crédit : <strong id="val-mensualite-credit" class="text-amber-400">0 TND / mois</strong></span>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ================= TAB 3: PRODUITS, TVA & CAPACITE ================= -->
+            <section id="tab-produits" class="tab-pane hidden space-y-6">
+                <div class="bg-stone-900 border border-stone-800 rounded-2xl p-6 sm:p-8 shadow-xl space-y-6">
+                    <div class="border-b border-stone-800 pb-4">
+                        <h2 class="text-xl font-bold text-amber-400">3. Catalogue Produits, TVA & Capacité d'Accueil</h2>
+                        <p class="text-sm text-stone-400 mt-1">Définissez vos prix de vente TTC, TVA, coûts matières, emballages et commissions de livraison.</p>
+                    </div>
+
+                    <!-- Capacité Physique du Local -->
+                    <div class="bg-stone-950/80 p-5 rounded-xl border border-amber-500/20 grid grid-cols-1 sm:grid-cols-3 gap-4">
+                        <div>
+                            <div class="flex justify-between text-xs mb-1"><label>Places Assises (Capacité) :</label><span id="disp-places" class="font-bold text-amber-400">35 places</span></div>
+                            <input type="range" id="input-places" min="10" max="100" step="5" value="35" class="w-full" oninput="recalculateAll()">
+                        </div>
+                        <div>
+                            <div class="flex justify-between text-xs mb-1"><label>Rotation des Tables / jour :</label><span id="disp-rotation" class="font-bold text-amber-400">5.5 rotations</span></div>
+                            <input type="range" id="input-rotation" min="2" max="12" step="0.5" value="5.5" class="w-full" oninput="recalculateAll()">
+                        </div>
+                        <div>
+                            <div class="flex justify-between text-xs mb-1"><label>Jours Ouverts / Mois :</label><span id="disp-jours" class="font-bold text-amber-400">28 jours</span></div>
+                            <input type="range" id="input-jours" min="20" max="31" step="1" value="28" class="w-full" oninput="recalculateAll()">
+                        </div>
+                    </div>
+
+                    <!-- Dynamic Product Categories Table / Grid -->
+                    <div id="product-categories-container" class="space-y-4">
+                        <!-- Populated dynamically -->
+                    </div>
+                </div>
+            </section>
+
+            <!-- ================= TAB 4: RH & CHARGES SOCIALES ================= -->
+            <section id="tab-rh" class="tab-pane hidden space-y-6">
+                <div class="bg-stone-900 border border-stone-800 rounded-2xl p-6 sm:p-8 shadow-xl space-y-6">
+                    <div class="border-b border-stone-800 pb-4">
+                        <h2 class="text-xl font-bold text-amber-400">4. Masse Salariale & Charges Patronales en Tunisie</h2>
+                        <p class="text-sm text-stone-400 mt-1">Calcul rigoureux sur le salaire BRUT (CNSS 16,57%, TFP 1%, FOPROLOS 0,5%, Assurance accident, Rémunération du Porteur).</p>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div class="bg-stone-950/60 p-5 rounded-xl border border-stone-800 space-y-4">
+                            <h3 class="font-bold text-amber-400 text-sm border-b border-stone-800 pb-2">👨‍🍳 Équipe Salle, Barista & Cuisine</h3>
+                            <div class="space-y-3">
+                                <div>
+                                    <div class="flex justify-between text-xs mb-1"><label>Effectif Équipe (Temps plein) :</label><span id="disp-nb-equipe" class="font-bold text-amber-400">5 pers</span></div>
+                                    <input type="range" id="input-nb-equipe" min="2" max="15" step="1" value="5" class="w-full" oninput="recalculateAll()">
+                                </div>
+                                <div>
+                                    <div class="flex justify-between text-xs mb-1"><label>Salaire Brut Mensuel Moyen / pers :</label><span id="disp-sal-brut" class="font-bold text-amber-400">950 TND</span></div>
+                                    <input type="range" id="input-sal-brut" min="600" max="2500" step="50" value="950" class="w-full" oninput="recalculateAll()">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="bg-stone-950/60 p-5 rounded-xl border border-stone-800 space-y-4">
+                            <h3 class="font-bold text-amber-400 text-sm border-b border-stone-800 pb-2">💼 Rémunération du Porteur / Gérant</h3>
+                            <div class="space-y-3">
+                                <div>
+                                    <div class="flex justify-between text-xs mb-1"><label>Salaire Brut Gérant / Manager :</label><span id="disp-sal-gerant" class="font-bold text-amber-400">1 800 TND</span></div>
+                                    <input type="range" id="input-sal-gerant" min="0" max="5000" step="100" value="1800" class="w-full" oninput="recalculateAll()">
+                                </div>
+                                <div>
+                                    <div class="flex justify-between text-xs mb-1"><label>Taux de Charges Patronales Global (CNSS + TFP + FOPROLOS) :</label><span id="disp-taux-patronal" class="font-bold text-amber-400">21.0 %</span></div>
+                                    <input type="range" id="input-taux-patronal" min="18" max="25" step="0.5" value="21.0" class="w-full" oninput="recalculateAll()">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="p-4 bg-stone-950 border border-amber-500/30 rounded-xl flex justify-between items-center">
+                        <span class="text-stone-300 font-medium">Coût Salarial Brut Total + Charges Patronales :</span>
+                        <span id="total-masse-salariale" class="text-xl font-extrabold text-amber-400">0 TND / mois</span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ================= TAB 5: EXPLOITATION & CHARGES FIXES ================= -->
+            <section id="tab-charges" class="tab-pane hidden space-y-6">
+                <div class="bg-stone-900 border border-stone-800 rounded-2xl p-6 sm:p-8 shadow-xl space-y-6">
+                    <div class="border-b border-stone-800 pb-4">
+                        <h2 class="text-xl font-bold text-amber-400">5. Charges d'Exploitation & Frais Fixes</h2>
+                        <p class="text-sm text-stone-400 mt-1">Loyer, STEG, eau, comptabilité, marketing, entretien et inflation annuelle.</p>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div class="bg-stone-950/60 p-4 rounded-xl border border-stone-800">
+                            <div class="flex justify-between text-xs mb-1"><label>Loyer Commercial Mensuel :</label><span id="disp-loyer" class="font-bold text-amber-400">2 800 TND</span></div>
+                            <input type="range" id="input-loyer" min="800" max="15000" step="100" value="2800" class="w-full" oninput="recalculateAll()">
+                        </div>
+                        <div class="bg-stone-950/60 p-4 rounded-xl border border-stone-800">
+                            <div class="flex justify-between text-xs mb-1"><label>Électricité & Gaz (STEG) :</label><span id="disp-steg" class="font-bold text-amber-400">1 300 TND</span></div>
+                            <input type="range" id="input-steg" min="300" max="5000" step="50" value="1300" class="w-full" oninput="recalculateAll()">
+                        </div>
+                        <div class="bg-stone-950/60 p-4 rounded-xl border border-stone-800">
+                            <div class="flex justify-between text-xs mb-1"><label>Eau (SONEDE) & Internet / Wifi :</label><span id="disp-sonede" class="font-bold text-amber-400">350 TND</span></div>
+                            <input type="range" id="input-sonede" min="100" max="1500" step="25" value="350" class="w-full" oninput="recalculateAll()">
+                        </div>
+                        <div class="bg-stone-950/60 p-4 rounded-xl border border-stone-800">
+                            <div class="flex justify-between text-xs mb-1"><label>Marketing, Réseaux Sociaux & Pub :</label><span id="disp-marketing" class="font-bold text-amber-400">800 TND</span></div>
+                            <input type="range" id="input-marketing" min="100" max="4000" step="50" value="800" class="w-full" oninput="recalculateAll()">
+                        </div>
+                        <div class="bg-stone-950/60 p-4 rounded-xl border border-stone-800">
+                            <div class="flex justify-between text-xs mb-1"><label>Comptabilité, Logiciel Caisse & Hygiène :</label><span id="disp-compta" class="font-bold text-amber-400">600 TND</span></div>
+                            <input type="range" id="input-compta" min="200" max="2500" step="50" value="600" class="w-full" oninput="recalculateAll()">
+                        </div>
+                        <div class="bg-stone-950/60 p-4 rounded-xl border border-stone-800">
+                            <div class="flex justify-between text-xs mb-1"><label>Inflation Annuelle (Salaires & Loyers) :</label><span id="disp-inflation" class="font-bold text-amber-400">3.5 %</span></div>
+                            <input type="range" id="input-inflation" min="0" max="10" step="0.5" value="3.5" class="w-full" oninput="recalculateAll()">
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ================= TAB 6: MONTEE EN CHARGE & SAISONNALITE ================= -->
+            <section id="tab-saison" class="tab-pane hidden space-y-6">
+                <div class="bg-stone-900 border border-stone-800 rounded-2xl p-6 sm:p-8 shadow-xl space-y-6">
+                    <div class="border-b border-stone-800 pb-4">
+                        <h2 class="text-xl font-bold text-amber-400">6. Courbe de Montée en Charge & Saisonnalité sur 12 Mois</h2>
+                        <p class="text-sm text-stone-400 mt-1">Le démarrage d'un café progresse progressivement. Ajustez le % du CA atteint par mois et les coefficients saisonniers.</p>
+                    </div>
+
+                    <div class="bg-stone-950/80 p-5 rounded-xl border border-amber-500/20 grid grid-cols-1 sm:grid-cols-3 gap-4">
+                        <div>
+                            <div class="flex justify-between text-xs mb-1"><label>Mois 1 (Démarrage) :</label><span id="disp-m1" class="font-bold text-amber-400">55 %</span></div>
+                            <input type="range" id="input-m1" min="30" max="90" step="5" value="55" class="w-full" oninput="recalculateAll()">
+                        </div>
+                        <div>
+                            <div class="flex justify-between text-xs mb-1"><label>Mois 3 (Stabilisation) :</label><span id="disp-m3" class="font-bold text-amber-400">75 %</span></div>
+                            <input type="range" id="input-m3" min="50" max="100" step="5" value="75" class="w-full" oninput="recalculateAll()">
+                        </div>
+                        <div>
+                            <div class="flex justify-between text-xs mb-1"><label>Mois 6+ (Régime de croisière) :</label><span id="disp-m6" class="font-bold text-amber-400">100 %</span></div>
+                            <input type="range" id="input-m6" min="70" max="130" step="5" value="100" class="w-full" oninput="recalculateAll()">
+                        </div>
+                    </div>
+
+                    <!-- 12 Months Seasonality Coefficients Table -->
+                    <div class="space-y-3">
+                        <h3 class="font-bold text-amber-400 text-sm">Coefficients Saisonniers Mensuels (Janvier à Décembre)</h3>
+                        <div class="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-3" id="seasonality-inputs-container">
+                            <!-- Populated dynamically -->
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ================= TAB 7: TRESORERIE 12-36 MOIS ================= -->
+            <section id="tab-tresorerie" class="tab-pane hidden space-y-6">
+                <div class="bg-stone-900 border border-stone-800 rounded-2xl p-6 sm:p-8 shadow-xl space-y-6">
+                    <div class="border-b border-stone-800 pb-4">
+                        <h2 class="text-xl font-bold text-amber-400">7. Plan de Trésorerie Prévisionnel sur 12 Mois</h2>
+                        <p class="text-sm text-stone-400 mt-1">Suivi du cash disponible, encaissements, décaissements et point bas de trésorerie.</p>
+                    </div>
+
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left text-xs sm:text-sm">
+                            <thead>
+                                <tr class="border-b border-stone-800 text-stone-400 font-semibold uppercase tracking-wider">
+                                    <th class="py-3 px-2">Mois</th>
+                                    <th class="py-3 px-2 text-right">CA TTC</th>
+                                    <th class="py-3 px-2 text-right">Décaissements</th>
+                                    <th class="py-3 px-2 text-right">Crédit</th>
+                                    <th class="py-3 px-2 text-right">Flux Net Mois</th>
+                                    <th class="py-3 px-2 text-right font-bold text-amber-400">Trésorerie Finale</th>
+                                </tr>
+                            </thead>
+                            <tbody id="table-cashflow-monthly" class="divide-y divide-stone-800/60 font-medium">
+                                <!-- Populated dynamically -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ================= TAB 8: SCENARIOS & SENSIBILITE ================= -->
+            <section id="tab-scenarios" class="tab-pane hidden space-y-6">
+                <div class="bg-stone-900 border border-stone-800 rounded-2xl p-6 sm:p-8 shadow-xl space-y-6">
+                    <div class="border-b border-stone-800 pb-4">
+                        <h2 class="text-xl font-bold text-amber-400">8. Comparatif Scénarios & Analyse de Sensibilité</h2>
+                        <p class="text-sm text-stone-400 mt-1">Comparez les hypothèses Pessimiste, Réaliste et Optimiste et mesurez l'impact d'une baisse de 10% des ventes.</p>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6" id="scenarios-comparison-container">
+                        <!-- Populated dynamically -->
+                    </div>
+
+                    <div class="bg-stone-950/80 p-5 rounded-xl border border-stone-800 space-y-4">
+                        <h3 class="font-bold text-amber-400 text-sm">Analyse de Sensibilité (-10% sur le CA)</h3>
+                        <div id="sensitivity-result" class="text-sm text-stone-300">
+                            <!-- Populated dynamically -->
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+        </main>
+    </div>
+
+    <!-- JavaScript Application Logic v3.0 -->
+    <script>
+        // Product Data structure with TVA and packaging costs
+        const productCategories = [
+            { id: 'boissons', name: 'Cafés Espressos & Chauds', icon: '☕', q: 140, pTTC: 4.0, tva: 0.19, cMat: 1.1, cEmbal: 0.15 },
+            { id: 'frappes', name: 'Iced Coffee & Frappés', icon: '🥤', q: 40, pTTC: 7.5, tva: 0.19, cMat: 2.2, cEmbal: 0.30 },
+            { id: 'jus', name: 'Jus Frais & Smoothies', icon: '🍹', q: 35, pTTC: 7.0, tva: 0.19, cMat: 2.1, cEmbal: 0.30 },
+            { id: 'sodas', name: 'Sodas & Eaux', icon: '🍾', q: 50, pTTC: 3.0, tva: 0.19, cMat: 1.0, cEmbal: 0.10 },
+            { id: 'crepesuc', name: 'Crêpes Sucrées (Nutella...)', icon: '🥞', q: 60, pTTC: 8.5, tva: 0.19, cMat: 2.5, cEmbal: 0.50 },
+            { id: 'crepesal', name: 'Crêpes Salées & Galettes', icon: '🧀', q: 35, pTTC: 11.5, tva: 0.19, cMat: 4.0, cEmbal: 0.60 },
+            { id: 'gaufres', name: 'Gaufres & Pancakes', icon: '🧇', q: 25, pTTC: 9.0, tva: 0.19, cMat: 2.7, cEmbal: 0.50 },
+            { id: 'sandwiches', name: 'Sandwichs & Paninis', icon: '🥪', q: 30, pTTC: 9.0, tva: 0.19, cMat: 3.2, cEmbal: 0.50 },
+            { id: 'viennoiserie', name: 'Viennoiseries', icon: '🥐', q: 45, pTTC: 2.5, tva: 0.19, cMat: 0.9, cEmbal: 0.10 },
+            // Catégories supplémentaires du catalogue — valeurs initiales indicatives et modifiables.
+            { id: 'gateaux', name: 'Gâteaux & Parts de Gâteau', icon: '🍰', q: 18, pTTC: 6.0, tva: 0.19, cMat: 2.2, cEmbal: 0.30 },
+            { id: 'chicha', name: 'Chicha / Service', icon: '♨️', q: 8, pTTC: 12.0, tva: 0.19, cMat: 4.0, cEmbal: 0.20 },
+            { id: 'petitdej2', name: 'Formule Petit-Déjeuner (2 personnes)', icon: '🍳', q: 6, pTTC: 18.0, tva: 0.19, cMat: 7.0, cEmbal: 1.0 },
+            { id: 'brunch4', name: 'Formule Brunch (4 personnes)', icon: '🥐', q: 4, pTTC: 28.0, tva: 0.19, cMat: 12.0, cEmbal: 1.5 },
+            { id: 'petitdej1', name: 'Formule Petit-Déjeuner (1 personne)', icon: '🥐', q: 12, pTTC: 9.0, tva: 0.19, cMat: 3.5, cEmbal: 0.50 },
+            { id: 'brunch2', name: 'Formule Brunch (2 personnes)', icon: '🥞', q: 5, pTTC: 19.0, tva: 0.19, cMat: 8.0, cEmbal: 1.0 }
+        ];
+
+        let seasonalityCoefs = [0.9, 0.9, 1.0, 1.1, 1.1, 1.3, 1.4, 1.4, 1.0, 1.0, 1.0, 1.2]; // Jan to Dec
+
+        let isSidebarCollapsed = false;
+
+        function toggleSidebarCollapse() {
+            const sidebar = document.getElementById('sidebar');
+            const icon = document.getElementById('collapse-icon');
+            const texts = document.querySelectorAll('.sidebar-text');
+            const label = document.getElementById('sidebar-label');
+
+            isSidebarCollapsed = !isSidebarCollapsed;
+
+            if (isSidebarCollapsed) {
+                sidebar.classList.remove('w-64');
+                sidebar.classList.add('w-16');
+                icon.classList.add('rotate-180');
+                texts.forEach(el => el.classList.add('hidden'));
+                if (label) label.classList.add('hidden');
+            } else {
+                sidebar.classList.remove('w-16');
+                sidebar.classList.add('w-64');
+                icon.classList.remove('rotate-180');
+                texts.forEach(el => el.classList.remove('hidden'));
+                if (label) label.classList.remove('hidden');
+            }
+        }
+
+        function initProductInputs() {
+            const container = document.getElementById('product-categories-container');
+            if (!container) return;
+            container.innerHTML = productCategories.map(cat => `
+                <div class="p-4 bg-stone-950/60 rounded-xl border border-stone-800 space-y-3">
+                    <div class="flex items-center gap-2 text-amber-400 font-bold border-b border-stone-800 pb-2 text-sm">
+                        <span>${cat.icon}</span>
+                        <h3>${cat.name}</h3>
+                    </div>
+                    <div class="grid grid-cols-1 sm:grid-cols-4 gap-4">
+                        <div>
+                            <div class="flex justify-between text-xs mb-1"><label>Ventes / jour :</label><span id="disp-q-${cat.id}" class="font-bold text-amber-400">${cat.q}</span></div>
+                            <input type="range" id="input-q-${cat.id}" min="0" max="300" step="5" value="${cat.q}" class="w-full" oninput="recalculateAll()">
+                        </div>
+                        <div>
+                            <div class="flex justify-between text-xs mb-1"><label>Prix TTC (TND) :</label><span id="disp-p-${cat.id}" class="font-bold text-amber-400">${cat.pTTC.toFixed(1)}</span></div>
+                            <input type="range" id="input-p-${cat.id}" min="1" max="30" step="0.5" value="${cat.pTTC}" class="w-full" oninput="recalculateAll()">
+                        </div>
+                        <div>
+                            <div class="flex justify-between text-xs mb-1"><label>Coût Matière :</label><span id="disp-cm-${cat.id}" class="font-bold text-amber-400">${cat.cMat.toFixed(2)}</span></div>
+                            <input type="range" id="input-cm-${cat.id}" min="0.2" max="15" step="0.1" value="${cat.cMat}" class="w-full" oninput="recalculateAll()">
+                        </div>
+                        <div>
+                            <div class="flex justify-between text-xs mb-1"><label>Coût Emballage :</label><span id="disp-ce-${cat.id}" class="font-bold text-amber-400">${cat.cEmbal.toFixed(2)}</span></div>
+                            <input type="range" id="input-ce-${cat.id}" min="0.05" max="2" step="0.05" value="${cat.cEmbal}" class="w-full" oninput="recalculateAll()">
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+
+            const seasonContainer = document.getElementById('seasonality-inputs-container');
+            if (seasonContainer) {
+                const monthNames = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Août', 'Sep', 'Oct', 'Nov', 'Déc'];
+                seasonContainer.innerHTML = seasonalityCoefs.map((val, idx) => `
+                    <div class="bg-stone-950 p-3 rounded-lg border border-stone-800 text-center space-y-1">
+                        <span class="text-xs text-stone-400 font-semibold">${monthNames[idx]}</span>
+                        <input type="number" id="season-${idx}" value="${Math.round(val * 100)}" min="40" max="200" step="5" class="w-full bg-stone-900 text-amber-400 text-center py-1 rounded border border-stone-700 text-xs" oninput="updateSeasonality(${idx}, this.value)">
+                    </div>
+                `).join('');
+            }
+        }
+
+        function updateSeasonality(idx, val) {
+            seasonalityCoefs[idx] = parseFloat(val) / 100;
+            recalculateAll();
+        }
+
+        function syncInput(id, val) {
+            const rangeEl = document.getElementById(id);
+            if (rangeEl) rangeEl.value = val;
+            recalculateAll();
+        }
+
+        function syncRange(id, val) {
+            const numEl = document.getElementById('num-' + id);
+            if (numEl) numEl.value = val;
+            recalculateAll();
+        }
+
+        let chartChargesInstance = null;
+        let chartCashflowInstance = null;
+        let currentActiveTab = 'tab-resultats';
+
+        function setActiveTab(tabId) {
+            currentActiveTab = tabId;
+            document.querySelectorAll('.tab-pane').forEach(p => { p.classList.add('hidden'); p.classList.remove('block'); });
+            const target = document.getElementById(tabId);
+            if (target) { target.classList.remove('hidden'); target.classList.add('block'); }
+
+            document.querySelectorAll('.tab-btn').forEach(b => {
+                b.classList.remove('bg-amber-500', 'text-stone-950', 'shadow-md', 'shadow-amber-500/20', 'font-semibold');
+                b.classList.add('text-stone-400', 'hover:text-stone-200', 'hover:bg-stone-800/60', 'font-medium');
+            });
+            const btn = document.getElementById('btn-' + tabId);
+            if (btn) {
+                btn.classList.remove('text-stone-400', 'hover:text-stone-200', 'hover:bg-stone-800/60', 'font-medium');
+                btn.classList.add('bg-amber-500', 'text-stone-950', 'shadow-md', 'shadow-amber-500/20', 'font-semibold');
+            }
+            recalculateAll();
+            if (tabId === 'tab-resultats') renderCharts();
+        }
+
+        function formatMoney(amount) {
+            return Math.round(amount).toLocaleString('fr-FR') + ' TND';
+        }
+
+        function recalculateAll() {
+            const getVal = (id) => parseFloat(document.getElementById(id)?.value) || 0;
+
+            // CAPEX sync
+            ['machine', 'cuisine', 'froid', 'travaux', 'mobilier', 'caution', 'stock', 'frais'].forEach(key => {
+                const r = document.getElementById('capex-' + key);
+                const n = document.getElementById('num-capex-' + key);
+                if (r && n && document.activeElement !== n) n.value = r.value;
+            });
+
+            const capexMachine = getVal('capex-machine');
+            const capexCuisine = getVal('capex-cuisine');
+            const capexFroid = getVal('capex-froid');
+            const capexTravaux = getVal('capex-travaux');
+            const capexMobilier = getVal('capex-mobilier');
+            const capexCaution = getVal('capex-caution');
+            const capexStock = getVal('capex-stock');
+            const capexFrais = getVal('capex-frais');
+
+            // Total Capex including caution & stock for funding plan
+            const totalCapexWithBFR = capexMachine + capexCuisine + capexFroid + capexTravaux + capexMobilier + capexCaution + capexStock + capexFrais;
+            const elTotCapex = document.getElementById('total-capex');
+            if (elTotCapex) elTotCapex.innerText = formatMoney(totalCapexWithBFR);
+
+            // Depreciable Capex (excluding caution and stock BFR)
+            const depreciableCapex = capexMachine + capexCuisine + capexFroid + capexTravaux + capexMobilier + capexFrais;
+            const annualAmortization = depreciableCapex / 5; // 5 years standard
+
+            // Financing Plan
+            const apport = getVal('input-apport');
+            const dispApport = document.getElementById('disp-apport');
+            if (dispApport) dispApport.innerText = formatMoney(apport);
+
+            const besoinEmprunt = Math.max(0, totalCapexWithBFR - apport);
+            const elEmprunt = document.getElementById('val-emprunt');
+            if (elEmprunt) elEmprunt.innerText = formatMoney(besoinEmprunt);
+
+            const tauxPret = getVal('input-taux-pret') / 100;
+            const dispTaux = document.getElementById('disp-taux-pret');
+            if (dispTaux) dispTaux.innerText = (tauxPret * 100).toFixed(1) + ' %';
+
+            const dureePretMois = getVal('input-duree-pret');
+            const dispDuree = document.getElementById('disp-duree-pret');
+            if (dispDuree) dispDuree.innerText = dureePretMois + ' mois';
+
+            // Monthly loan payment formula: M = P [ i(1 + i)^n ] / [ (1 + i)^n – 1]
+            let mensualiteCredit = 0;
+            if (besoinEmprunt > 0 && tauxPret > 0) {
+                const i = tauxPret / 12;
+                mensualiteCredit = besoinEmprunt * (i * Math.pow(1 + i, dureePretMois)) / (Math.pow(1 + i, dureePretMois) - 1);
+            }
+            const elMensCred = document.getElementById('val-mensualite-credit');
+            if (elMensCred) elMensCred.innerText = formatMoney(mensualiteCredit) + ' / mois';
+
+            // Capacity check
+            const places = getVal('input-places');
+            const rotation = getVal('input-rotation');
+            const joursMois = getVal('input-jours');
+            document.getElementById('disp-places').innerText = places + ' places';
+            document.getElementById('disp-rotation').innerText = rotation + ' rot.';
+            document.getElementById('disp-jours').innerText = joursMois + ' jours';
+
+            const maxDailyCapacity = places * rotation;
+
+            // Products daily volume and HT calculation
+            let totalDailyTickets = 0;
+            let caJourTTC = 0;
+            let caJourHT = 0;
+            let cogsJour = 0; // Matières + Emballages
+
+            productCategories.forEach(cat => {
+                const q = getVal(`input-q-${cat.id}`);
+                const pTTC = getVal(`input-p-${cat.id}`);
+                const cMat = getVal(`input-cm-${cat.id}`);
+                const cEmbal = getVal(`input-ce-${cat.id}`);
+
+                document.getElementById(`disp-q-${cat.id}`).innerText = q;
+                document.getElementById(`disp-p-${cat.id}`).innerText = pTTC.toFixed(1);
+                document.getElementById(`disp-cm-${cat.id}`).innerText = cMat.toFixed(2);
+                document.getElementById(`disp-ce-${cat.id}`).innerText = cEmbal.toFixed(2);
+
+                totalDailyTickets += q;
+                caJourTTC += q * pTTC;
+                const pHT = pTTC / (1 + cat.tva);
+                caJourHT += q * pHT;
+                cogsJour += q * (cMat + cEmbal);
+            });
+
+            // HR Payroll & Employer Charges
+            const nbEquipe = getVal('input-nb-equipe');
+            document.getElementById('disp-nb-equipe').innerText = nbEquipe + ' pers';
+            const salBrut = getVal('input-sal-brut');
+            document.getElementById('disp-sal-brut').innerText = formatMoney(salBrut);
+            const salGerant = getVal('input-sal-gerant');
+            document.getElementById('disp-sal-gerant').innerText = formatMoney(salGerant);
+            const tauxPatronal = getVal('input-taux-patronal') / 100;
+            document.getElementById('disp-taux-patronal').innerText = (tauxPatronal * 100).toFixed(1) + ' %';
+
+            const totalBrutMensuel = (nbEquipe * salBrut) + salGerant;
+            const masseSalarialeMensuelleTotale = totalBrutMensuel * (1 + tauxPatronal);
+            const elMasse = document.getElementById('total-masse-salariale');
+            if (elMasse) elMasse.innerText = formatMoney(masseSalarialeMensuelleTotale) + ' / mois';
+
+            // Operating Charges
+            const loyer = getVal('input-loyer'); document.getElementById('disp-loyer').innerText = formatMoney(loyer);
+            const steg = getVal('input-steg'); document.getElementById('disp-steg').innerText = formatMoney(steg);
+            const sonede = getVal('input-sonede'); document.getElementById('disp-sonede').innerText = formatMoney(sonede);
+            const marketing = getVal('input-marketing'); document.getElementById('disp-marketing').innerText = formatMoney(marketing);
+            const compta = getVal('input-compta'); document.getElementById('disp-compta').innerText = formatMoney(compta);
+            const inflation = getVal('input-inflation') / 100; document.getElementById('disp-inflation').innerText = (inflation * 100).toFixed(1) + ' %';
+
+            const totalChargesFixesMensuelles = loyer + steg + sonede + marketing + compta;
+
+            // Ramp up coefficients
+            const rM1 = getVal('input-m1') / 100; document.getElementById('disp-m1').innerText = Math.round(rM1 * 100) + ' %';
+            const rM3 = getVal('input-m3') / 100; document.getElementById('disp-m3').innerText = Math.round(rM3 * 100) + ' %';
+            const rM6 = getVal('input-m6') / 100; document.getElementById('disp-m6').innerText = Math.round(rM6 * 100) + ' %';
+
+            // 12 Months Simulation loop
+            let annualCaHT = 0;
+            let annualCaTTC = 0;
+            let annualCogs = 0;
+            let annualFixedCosts = 0;
+            let annualPayroll = 0;
+            let monthlyCashflows = [];
+            let currentTreasury = apport;
+
+            for (let m = 1; m <= 12; m++) {
+                let rampFactor = rM1;
+                if (m === 2) rampFactor = (rM1 + rM3) / 2;
+                if (m === 3 || m === 4) rampFactor = rM3;
+                if (m === 5) rampFactor = (rM3 + rM6) / 2;
+                if (m >= 6) rampFactor = rM6;
+
+                const seas = seasonalityCoefs[m - 1];
+                const monthCaHT = caJourHT * joursMois * rampFactor * seas;
+                const monthCaTTC = caJourTTC * joursMois * rampFactor * seas;
+                const monthCogs = cogsJour * joursMois * rampFactor * seas;
+                const monthFixed = totalChargesFixesMensuelles * Math.pow(1 + inflation, (m - 1) / 12);
+                const monthPayroll = masseSalarialeMensuelleTotale * Math.pow(1 + inflation, (m - 1) / 12);
+
+                annualCaHT += monthCaHT;
+                annualCaTTC += monthCaTTC;
+                annualCogs += monthCogs;
+                annualFixedCosts += monthFixed;
+                annualPayroll += monthPayroll;
+
+                // Cashflow calculation for month
+                let cashIn = monthCaTTC;
+                let cashOut = monthCogs + monthFixed + monthPayroll + (m === 1 ? totalCapexWithBFR : 0) + (besoinEmprunt > 0 ? mensualiteCredit : 0);
+                if (m === 1) cashIn += besoinEmprunt;
+
+                let netCashMonth = cashIn - cashOut;
+                currentTreasury += netCashMonth;
+                monthlyCashflows.push({ month: m, caTTC: monthCaTTC, cashOut, net: netCashMonth, treasury: currentTreasury });
+            }
+
+            const ebitdaAnnuel = annualCaHT - annualCogs - annualFixedCosts - annualPayroll;
+            const margeEbitda = annualCaHT > 0 ? (ebitdaAnnuel / annualCaHT) * 100 : 0;
+            const ebitAnnuel = ebitdaAnnuel - annualAmortization;
+
+            // Tunisian Tax: IS 15% + CSS 3% on IS (or min tax)
+            let isTax = ebitAnnuel > 0 ? ebitAnnuel * 0.15 : 0;
+            let cssTax = isTax > 0 ? isTax * 0.03 : 100; // Minimum tax or CSS
+            let totalTax = isTax + cssTax;
+            let netProfit = ebitAnnuel - totalTax;
+
+            // Break-even annual
+            const grossMarginRatio = annualCaHT > 0 ? (annualCaHT - annualCogs) / annualCaHT : 0;
+            const totalAnnualFixed = annualFixedCosts + annualPayroll;
+            const breakEvenHT = grossMarginRatio > 0 ? totalAnnualFixed / grossMarginRatio : 0;
+            const breakEvenMonthlyHT = breakEvenHT / 12;
+            const averageTicketTTC = totalDailyTickets > 0 ? (caJourTTC / totalDailyTickets) : 5;
+            const breakEvenDailyTickets = averageTicketTTC > 0 ? (breakEvenMonthlyHT / joursMois) / (averageTicketTTC / 1.19) : 0;
+
+            const netMonthlyCash = (netProfit + annualAmortization) / 12;
+            const roiMonths = netMonthlyCash > 0 ? (totalCapexWithBFR / netMonthlyCash) : 999;
+
+            // Update UI KPIs
+            document.getElementById('kpi-ca-annuel').innerText = formatMoney(annualCaHT);
+            document.getElementById('kpi-ca-mensuel').innerText = `Mensuel moyen : ${formatMoney(annualCaHT / 12)}`;
+            document.getElementById('kpi-ebitda').innerText = formatMoney(ebitdaAnnuel);
+            document.getElementById('kpi-marge-ebitda').innerText = `Marge EBITDA : ${margeEbitda.toFixed(1)}%`;
+            document.getElementById('kpi-point-mort').innerText = formatMoney(breakEvenMonthlyHT) + ' HT/mois';
+            document.getElementById('kpi-clients-req').innerText = `≈ ${Math.ceil(breakEvenDailyTickets)} tickets/jour requis`;
+            document.getElementById('kpi-roi').innerText = roiMonths > 120 ? 'Non Rentable' : `${Math.round(roiMonths)} mois`;
+            document.getElementById('kpi-net-annuel').innerText = `Bénéfice Net : ${formatMoney(netProfit)} / an`;
+
+            // Validation Alerts Banner
+            const alertsEl = document.getElementById('alerts-container');
+            let alertsHtml = '';
+            if (totalDailyTickets > maxDailyCapacity * 1.2) {
+                alertsHtml += `<div class="p-3 bg-red-500/20 border border-red-500/40 rounded-xl text-xs text-red-300">⚠️ Alerte Capacité Physique : Vos volumes (${totalDailyTickets} tickets/jour) dépassent la capacité théorique de votre local (${maxDailyCapacity} max). Risque de saturation ou d'insatisfaction client.</div>`;
+            }
+            if ((annualPayroll / annualCaHT) > 0.35) {
+                alertsHtml += `<div class="p-3 bg-amber-500/20 border border-amber-500/40 rounded-xl text-xs text-amber-300">⚠️ Alerte Masse Salariale : Représente ${((annualPayroll/annualCaHT)*100).toFixed(1)}% du CA (recommandé < 35%).</div>`;
+            }
+            if (alertsEl) alertsEl.innerHTML = alertsHtml;
+
+            // Income Statement Table HTML
+            const tbody = document.getElementById('table-income-statement');
+            const getPct = (val) => annualCaHT > 0 ? ((val / annualCaHT) * 100).toFixed(1) + ' %' : '0 %';
+            if (tbody) {
+                tbody.innerHTML = `
+                    <tr><td class="py-2.5 px-3 font-semibold text-stone-200">Chiffre d'Affaires Net (HT)</td><td class="py-2.5 px-3 text-right">${formatMoney(annualCaHT/12)}</td><td class="py-2.5 px-3 text-right text-amber-400 font-bold">${formatMoney(annualCaHT)}</td><td class="py-2.5 px-3 text-right">100 %</td></tr>
+                    <tr class="text-stone-300"><td class="py-2.5 px-3">(-) Coût Matières & Emballages</td><td class="py-2.5 px-3 text-right text-red-400">-${formatMoney(annualCogs/12)}</td><td class="py-2.5 px-3 text-right text-red-400">-${formatMoney(annualCogs)}</td><td class="py-2.5 px-3 text-right">${getPct(annualCogs)}</td></tr>
+                    <tr class="bg-stone-950/80 font-bold text-stone-100"><td class="py-2.5 px-3">(=) Marge Brute Commerciale</td><td class="py-2.5 px-3 text-right">${formatMoney((annualCaHT-annualCogs)/12)}</td><td class="py-2.5 px-3 text-right">${formatMoney(annualCaHT-annualCogs)}</td><td class="py-2.5 px-3 text-right">${getPct(annualCaHT-annualCogs)}</td></tr>
+                    <tr class="text-stone-300"><td class="py-2.5 px-3">(-) Charges Fixes d'Exploitation</td><td class="py-2.5 px-3 text-right text-red-400">-${formatMoney(annualFixedCosts/12)}</td><td class="py-2.5 px-3 text-right text-red-400">-${formatMoney(annualFixedCosts)}</td><td class="py-2.5 px-3 text-right">${getPct(annualFixedCosts)}</td></tr>
+                    <tr class="text-stone-300"><td class="py-2.5 px-3">(-) Masse Salariale & Charges Sociales</td><td class="py-2.5 px-3 text-right text-red-400">-${formatMoney(annualPayroll/12)}</td><td class="py-2.5 px-3 text-right text-red-400">-${formatMoney(annualPayroll)}</td><td class="py-2.5 px-3 text-right">${getPct(annualPayroll)}</td></tr>
+                    <tr class="bg-stone-950/80 font-bold text-emerald-400"><td class="py-2.5 px-3">(=) EBITDA (Résultat d'Exploitation)</td><td class="py-2.5 px-3 text-right">${formatMoney(ebitdaAnnuel/12)}</td><td class="py-2.5 px-3 text-right">${formatMoney(ebitdaAnnuel)}</td><td class="py-2.5 px-3 text-right">${getPct(ebitdaAnnuel)}</td></tr>
+                    <tr class="text-stone-400"><td class="py-2.5 px-3">(-) Amortissements du CAPEX</td><td class="py-2.5 px-3 text-right">-${formatMoney(annualAmortization/12)}</td><td class="py-2.5 px-3 text-right">-${formatMoney(annualAmortization)}</td><td class="py-2.5 px-3 text-right">${getPct(annualAmortization)}</td></tr>
+                    <tr class="text-stone-400"><td class="py-2.5 px-3">(-) Impôt sur les Sociétés (IS + CSS)</td><td class="py-2.5 px-3 text-right">-${formatMoney(totalTax/12)}</td><td class="py-2.5 px-3 text-right">-${formatMoney(totalTax)}</td><td class="py-2.5 px-3 text-right">${getPct(totalTax)}</td></tr>
+                    <tr class="bg-amber-500/10 border-t-2 border-amber-500/40 font-extrabold text-amber-400 text-base"><td class="py-3 px-3">(=) BÉNÉFICE NET ANNUEL</td><td class="py-3 px-3 text-right">${formatMoney(netProfit/12)}</td><td class="py-3 px-3 text-right">${formatMoney(netProfit)}</td><td class="py-3 px-3 text-right">${getPct(netProfit)}</td></tr>
+                `;
+            }
+
+            // Cashflow table monthly
+            const cfTbody = document.getElementById('table-cashflow-monthly');
+            if (cfTbody) {
+                cfTbody.innerHTML = monthlyCashflows.map(cf => `
+                    <tr class="hover:bg-stone-800/40">
+                        <td class="py-2 px-2 font-semibold">Mois ${cf.month}</td>
+                        <td class="py-2 px-2 text-right">${formatMoney(cf.caTTC)}</td>
+                        <td class="py-2 px-2 text-right text-red-400">-${formatMoney(cf.cashOut)}</td>
+                        <td class="py-2 px-2 text-right">${cf.month === 1 ? formatMoney(besoinEmprunt) : '0 TND'}</td>
+                        <td class="py-2 px-2 text-right ${cf.net >= 0 ? 'text-emerald-400' : 'text-red-400'}">${formatMoney(cf.net)}</td>
+                        <td class="py-2 px-2 text-right font-bold ${cf.treasury >= 0 ? 'text-amber-400' : 'text-red-500'}">${formatMoney(cf.treasury)}</td>
+                    </tr>
+                `).join('');
+            }
+
+            // Scenarios comparison container
+            const scContainer = document.getElementById('scenarios-comparison-container');
+            if (scContainer) {
+                const pessCa = annualCaHT * 0.8;
+                const optCa = annualCaHT * 1.2;
+                scContainer.innerHTML = `
+                    <div class="bg-stone-950 p-5 rounded-xl border border-stone-800 space-y-2">
+                        <span class="text-xs font-bold uppercase tracking-wider text-red-400">Scénario Pessimiste (-20%)</span>
+                        <p class="text-lg font-bold text-white">${formatMoney(pessCa)} CA</p>
+                        <p class="text-xs text-stone-400">EBITDA estimé : ${formatMoney(ebitdaAnnuel * 0.5)}</p>
+                    </div>
+                    <div class="bg-stone-950 p-5 rounded-xl border border-amber-500/40 space-y-2">
+                        <span class="text-xs font-bold uppercase tracking-wider text-amber-400">Scénario Réaliste (Actuel)</span>
+                        <p class="text-lg font-bold text-white">${formatMoney(annualCaHT)} CA</p>
+                        <p class="text-xs text-stone-400">EBITDA estimé : ${formatMoney(ebitdaAnnuel)}</p>
+                    </div>
+                    <div class="bg-stone-950 p-5 rounded-xl border border-stone-800 space-y-2">
+                        <span class="text-xs font-bold uppercase tracking-wider text-emerald-400">Scénario Optimiste (+20%)</span>
+                        <p class="text-lg font-bold text-white">${formatMoney(optCa)} CA</p>
+                        <p class="text-xs text-stone-400">EBITDA estimé : ${formatMoney(ebitdaAnnuel * 1.5)}</p>
+                    </div>
+                `;
+            }
+
+            const sensEl = document.getElementById('sensitivity-result');
+            if (sensEl) {
+                const reducedCa = annualCaHT * 0.9;
+                const reducedEbitda = reducedCa - annualCogs - annualFixedCosts - annualPayroll;
+                sensEl.innerHTML = `Si vos ventes baissent de 10% (CA de ${formatMoney(reducedCa)}), votre EBITDA passe à <strong class="text-amber-400">${formatMoney(reducedEbitda)}</strong> (soit une baisse de l'excédent de ${((1 - reducedEbitda/ebitdaAnnuel)*100).toFixed(1)}%). Votre seuil de sécurité reste robuste si la trésorerie initiale couvre le point bas.`;
+            }
+
+            window.finDataForCharts = { annualCogs, annualFixedCosts, annualPayroll, monthlyCashflows };
+            if (currentActiveTab === 'tab-resultats') renderCharts();
+        }
+
+        function renderCharts() {
+            const data = window.finDataForCharts;
+            if (!data) return;
+
+            const ctx1 = document.getElementById('chartCharges');
+            if (ctx1) {
+                if (chartChargesInstance) chartChargesInstance.destroy();
+                chartChargesInstance = new Chart(ctx1.getContext('2d'), {
+                    type: 'doughnut',
+                    data: {
+                        labels: ['Coût Matières & Emballages', 'Charges Fixes', 'Masse Salariale & Charges'],
+                        datasets: [{
+                            data: [data.annualCogs, data.annualFixedCosts, data.annualPayroll],
+                            backgroundColor: ['#f59e0b', '#3b82f6', '#10b981'],
+                            borderColor: '#171717',
+                            borderWidth: 2
+                        }]
+                    },
+                    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { color: '#d1d5db', font: { size: 11 } } } } }
+                });
+            }
+
+            const ctx2 = document.getElementById('chartCashflow');
+            if (ctx2) {
+                if (chartCashflowInstance) chartCashflowInstance.destroy();
+                chartCashflowInstance = new Chart(ctx2.getContext('2d'), {
+                    type: 'line',
+                    data: {
+                        labels: data.monthlyCashflows.map(c => 'Mois ' + c.month),
+                        datasets: [{
+                            label: 'Trésorerie Cumulative (TND)',
+                            data: data.monthlyCashflows.map(c => c.treasury),
+                            borderColor: '#f59e0b',
+                            backgroundColor: 'rgba(245, 158, 11, 0.1)',
+                            fill: true,
+                            tension: 0.3
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { display: false } },
+                        scales: {
+                            y: { ticks: { color: '#9ca3af' }, grid: { color: '#262626' } },
+                            x: { ticks: { color: '#d1d5db' }, grid: { display: false } }
+                        }
+                    }
+                });
+            }
+        }
+
+        function saveSimulationState() {
+            // Sauvegarde l'ensemble des champs, y compris les champs générés dynamiquement.
+            const controls = Array.from(document.querySelectorAll('input, select, textarea'));
+            const state = {
+                version: 2,
+                savedAt: new Date().toISOString(),
+                fields: controls.map((el) => ({
+                    id: el.id || '',
+                    name: el.name || '',
+                    type: el.type || el.tagName.toLowerCase(),
+                    value: el.value,
+                    checked: typeof el.checked === 'boolean' ? el.checked : undefined
+                })).filter((field) => field.id || field.name)
+            };
+
+            try {
+                localStorage.setItem('cafe_sim_v3', JSON.stringify(state));
+            } catch (error) {
+                alert('La sauvegarde locale a échoué. Vérifiez les autorisations de stockage du navigateur.');
+                return;
+            }
+
+            // Génère une page autonome de résumé consultable, avec les résultats calculés au moment du clic.
+            const escapeHtml = (value) => String(value ?? '').replace(/[&<>"']/g, (ch) => ({
+                '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+            })[ch]);
+            const kpis = [
+                ['CA Net HT (An 1)', 'kpi-ca-annuel'],
+                ['Moyenne mensuelle', 'kpi-ca-mensuel'],
+                ['EBITDA Exploitation', 'kpi-ebitda'],
+                ['Marge EBITDA', 'kpi-marge-ebitda'],
+                ['Point mort', 'kpi-point-mort'],
+                ['Tickets / jour requis', 'kpi-clients-req'],
+                ['Retour sur investissement (ROI)', 'kpi-roi'],
+                ['Bénéfice net An 1', 'kpi-net-annuel']
+            ].map(([label, id]) => {
+                const el = document.getElementById(id);
+                return `<tr><th>${escapeHtml(label)}</th><td>${escapeHtml(el ? el.innerText : '—')}</td></tr>`;
+            }).join('');
+
+            const fields = state.fields.map((field) => {
+                const el = field.id ? document.getElementById(field.id) : document.querySelector(`[name="${CSS.escape(field.name)}"]`);
+                let label = '';
+                if (el) {
+                    const associated = el.id ? document.querySelector(`label[for="${CSS.escape(el.id)}"]`) : null;
+                    if (associated) label = associated.innerText.trim();
+                }
+                if (!label) label = (field.id || field.name).replace(/^input-/, '').replace(/^num-/, '').replace(/^capex-/, 'CAPEX ').replace(/-/g, ' ');
+                const value = field.type === 'checkbox' || field.type === 'radio' ? (field.checked ? 'Oui' : 'Non') : field.value;
+                return `<tr><th>${escapeHtml(label)}</th><td>${escapeHtml(value)}</td></tr>`;
+            }).join('');
+
+            const report = `<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Résumé de simulation — Café Shop Tunis</title>
+                <style>body{font:15px/1.5 Arial,sans-serif;margin:0;background:#f5f5f4;color:#292524}main{max-width:1000px;margin:32px auto;padding:28px;background:white;border-radius:14px;box-shadow:0 4px 24px #0001}h1{margin-top:0;color:#92400e}h2{margin-top:28px;color:#78350f}p{color:#57534e}.actions{display:flex;gap:10px;margin:20px 0}.actions button{padding:10px 14px;border:0;border-radius:7px;background:#d97706;color:white;font-weight:bold;cursor:pointer}table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:9px 12px;border-bottom:1px solid #e7e5e4;vertical-align:top}th{width:42%;font-weight:600;color:#57534e}tr:nth-child(even){background:#fafaf9}.note{font-size:12px;color:#78716c}@media print{body{background:white}main{margin:0;box-shadow:none;max-width:none}.no-print{display:none}}</style></head><body><main>
+                <h1>Résumé de simulation — Café Shop & Crêperie Tunis</h1><p>Rapport généré le ${escapeHtml(new Date(state.savedAt).toLocaleString('fr-FR'))}. Les résultats reflètent les valeurs présentes au moment de la sauvegarde.</p>
+                <div class="actions no-print"><button onclick="window.print()">Imprimer / Enregistrer en PDF</button><button onclick="window.close()">Fermer le résumé</button></div>
+                <h2>Indicateurs de rentabilité</h2><table><tbody>${kpis}</tbody></table>
+                <h2>Paramètres enregistrés</h2><table><tbody>${fields}</tbody></table>
+                <p class="note">La sauvegarde complète est conservée dans le stockage local de ce navigateur. Ce résumé est une page autonome ouverte depuis le simulateur.</p>
+                </main></body></html>`;
+            const reportWindow = window.open('', '_blank');
+            if (reportWindow) {
+                reportWindow.document.open();
+                reportWindow.document.write(report);
+                reportWindow.document.close();
+            } else {
+                alert('Simulation sauvegardée, mais le navigateur a bloqué la page de résumé. Autorisez les fenêtres pop-up puis cliquez à nouveau sur Sauvegarder.');
+            }
+        }
+
+        function loadSimulationState() {
+            try {
+                const saved = localStorage.getItem('cafe_sim_v3');
+                if (!saved) return;
+                const parsed = JSON.parse(saved);
+
+                // Compatibilité avec l'ancien format qui ne stockait que l'apport et le loyer.
+                if (Array.isArray(parsed.fields)) {
+                    parsed.fields.forEach((field) => {
+                        const el = field.id ? document.getElementById(field.id) : null;
+                        if (!el) return;
+                        if (field.type === 'checkbox' || field.type === 'radio') el.checked = Boolean(field.checked);
+                        else if (field.value !== undefined) el.value = field.value;
+                    });
+                } else {
+                    if (parsed.apport !== undefined) document.getElementById('input-apport').value = parsed.apport;
+                    if (parsed.loyer !== undefined) document.getElementById('input-loyer').value = parsed.loyer;
+                }
+            } catch (error) {
+                console.warn('Impossible de restaurer la simulation sauvegardée :', error);
+            }
+        }
+
+        function resetAllDefaults() {
+            localStorage.removeItem('cafe_sim_v3');
+            location.reload();
+        }
+
+        window.addEventListener('DOMContentLoaded', () => {
+            initProductInputs();
+            loadSimulationState();
+            recalculateAll();
+        });
+    </script>
+</body>
+</html>
