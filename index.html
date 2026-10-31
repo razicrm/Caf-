@@ -1,1101 +1,299 @@
-<!DOCTYPE html>
-<html lang="fr" class="dark">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Simulateur de Rentabilité v3.0 - Café Shop & Crêperie Tunis</title>
-    <!-- Tailwind CSS CDN -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-        tailwind.config = {
-            darkMode: 'class',
-            theme: {
-                extend: {
-                    colors: {
-                        amber: {
-                            50: '#fffbeb',
-                            100: '#fef3c7',
-                            400: '#fbbf24',
-                            500: '#f59e0b',
-                            600: '#d97706',
-                            700: '#b45309',
-                            900: '#78350f',
-                        },
-                        stone: {
-                            800: '#262626',
-                            850: '#1f1f1f',
-                            900: '#171717',
-                            950: '#0a0a0a',
-                        }
-                    }
-                }
-            }
-        }
-    </script>
-    <!-- Chart.js CDN -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <style>
-        /* Custom range slider styling */
-        input[type=range] {
-            -webkit-appearance: none;
-            background: #374151;
-            height: 6px;
-            border-radius: 3px;
-        }
-        input[type=range]::-webkit-slider-thumb {
-            -webkit-appearance: none;
-            height: 16px;
-            width: 16px;
-            border-radius: 50%;
-            background: #f59e0b;
-            cursor: pointer;
-            box-shadow: 0 0 8px rgba(245, 158, 11, 0.5);
-            transition: all 0.15s ease-in-out;
-        }
-        input[type=range]::-webkit-slider-thumb:hover {
-            transform: scale(1.2);
-            background: #fbbf24;
-        }
-        .no-scrollbar::-webkit-scrollbar {
-            display: none;
-        }
-        .no-scrollbar {
-            -ms-overflow-style: none;
-            scrollbar-width: none;
-        }
-        @media print {
-            body { background-color: #ffffff !important; color: #111827 !important; }
-            aside, header button, .no-print { display: none !important; }
-            main { padding: 0 !important; max-width: 100% !important; }
-            .bg-stone-900, .bg-stone-950 { background-color: #ffffff !important; border-color: #e5e7eb !important; color: #111827 !important; }
-            .text-amber-400, .text-amber-500, .text-emerald-400, .text-blue-400 { color: #b45309 !important; }
-            .tab-pane { display: block !important; page-break-after: always; }
-        }
-    </style>
-</head>
-<body class="bg-stone-950 text-stone-100 font-sans min-h-screen flex flex-col selection:bg-amber-500 selection:text-stone-950">
-
-    <!-- Top Header Navigation -->
-    <header class="bg-stone-900/90 border-b border-stone-800 sticky top-0 z-50 backdrop-blur-md no-print">
-        <div class="max-w-full mx-auto px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between gap-4">
-            <div class="flex items-center gap-3">
-                <button onclick="toggleSidebarCollapse()" title="Réduire/Agrandir le menu" class="p-2 rounded-xl text-stone-300 hover:text-white bg-stone-800 hover:bg-stone-700 border border-stone-700 transition-all">
-                    <svg id="collapse-icon" class="w-5 h-5 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 19l-7-7 7-7m8 14l-7-7 7-7"></path></svg>
-                </button>
-                <div class="p-2 bg-amber-500/10 border border-amber-500/30 rounded-xl text-amber-500 text-xl hidden sm:block">
-                    ☕
-                </div>
-                <div>
-                    <div class="flex items-center gap-2">
-                        <h1 class="text-base sm:text-xl font-bold bg-gradient-to-r from-amber-400 to-amber-600 bg-clip-text text-transparent">
-                            Café Shop & Crêperie Tunis
-                        </h1>
-                        <span class="px-2 py-0.5 text-[10px] font-extrabold bg-amber-500/20 text-amber-400 border border-amber-500/40 rounded-full">v3.0 Pro</span>
-                    </div>
-                    <p class="text-xs text-stone-400 hidden sm:block">Modèle Financier Avancé avec Trésorerie, TVA, Capacité & Scénarios</p>
-                </div>
-            </div>
-            <div class="flex items-center gap-2">
-                <button onclick="saveSimulationState()" class="px-3 py-1.5 text-xs font-medium text-stone-300 hover:text-white bg-stone-800 hover:bg-stone-700 border border-stone-700 rounded-lg transition-all flex items-center gap-1.5 shadow-sm">
-                    💾 <span class="hidden md:inline">Sauvegarder</span>
-                </button>
-                <button onclick="resetAllDefaults()" class="px-3 py-1.5 text-xs font-medium text-stone-300 hover:text-white bg-stone-800 hover:bg-stone-700 border border-stone-700 rounded-lg transition-all flex items-center gap-1.5 shadow-sm">
-                    🔄 <span class="hidden md:inline">Réinitialiser</span>
-                </button>
-                <button onclick="window.print()" class="px-3.5 py-1.5 text-xs font-semibold text-stone-950 bg-amber-500 hover:bg-amber-400 rounded-lg transition-all shadow-md shadow-amber-500/20 flex items-center gap-1.5">
-                    🖨️ <span class="hidden md:inline">Rapport & PDF</span>
-                </button>
-            </div>
-        </div>
-    </header>
-
-    <!-- Main Container with Collapsible Left Sidebar + Content -->
-    <div class="flex-grow flex w-full relative">
-
-        <!-- Left Sidebar Navigation -->
-        <aside id="sidebar" class="sticky top-[57px] h-[calc(100vh-57px)] bg-stone-900 border-r border-stone-800 transition-all duration-300 ease-in-out flex flex-col justify-between shrink-0 z-40 w-64 no-print">
-            <div class="p-3 space-y-1.5 overflow-y-auto no-scrollbar">
-                <span id="sidebar-label" class="text-[10px] font-bold uppercase tracking-wider text-stone-500 px-3 block mb-2">Modules v3.0</span>
-                
-                <button onclick="setActiveTab('tab-resultats')" id="btn-tab-resultats" class="tab-btn w-full text-left px-3 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all duration-200 bg-amber-500 text-stone-950 shadow-md shadow-amber-500/20 flex items-center gap-3">
-                    <span class="text-lg shrink-0">📊</span>
-                    <span class="sidebar-text truncate">1. Tableau de Bord & Synthèse</span>
-                </button>
-
-                <button onclick="setActiveTab('tab-capex')" id="btn-tab-capex" class="tab-btn w-full text-left px-3 py-2.5 rounded-xl text-xs sm:text-sm font-medium transition-all duration-200 text-stone-400 hover:text-stone-200 hover:bg-stone-800/60 flex items-center gap-3">
-                    <span class="text-lg shrink-0">🏗️</span>
-                    <span class="sidebar-text truncate">2. CAPEX & Financement</span>
-                </button>
-
-                <button onclick="setActiveTab('tab-produits')" id="btn-tab-produits" class="tab-btn w-full text-left px-3 py-2.5 rounded-xl text-xs sm:text-sm font-medium transition-all duration-200 text-stone-400 hover:text-stone-200 hover:bg-stone-800/60 flex items-center gap-3">
-                    <span class="text-lg shrink-0">🍕</span>
-                    <span class="sidebar-text truncate">3. Produits, TVA & Capacité</span>
-                </button>
-
-                <button onclick="setActiveTab('tab-rh')" id="btn-tab-rh" class="tab-btn w-full text-left px-3 py-2.5 rounded-xl text-xs sm:text-sm font-medium transition-all duration-200 text-stone-400 hover:text-stone-200 hover:bg-stone-800/60 flex items-center gap-3">
-                    <span class="text-lg shrink-0">👨‍🍳</span>
-                    <span class="sidebar-text truncate">4. RH & Charges Sociales</span>
-                </button>
-
-                <button onclick="setActiveTab('tab-charges')" id="btn-tab-charges" class="tab-btn w-full text-left px-3 py-2.5 rounded-xl text-xs sm:text-sm font-medium transition-all duration-200 text-stone-400 hover:text-stone-200 hover:bg-stone-800/60 flex items-center gap-3">
-                    <span class="text-lg shrink-0">⚡</span>
-                    <span class="sidebar-text truncate">5. Exploitation & Fixes</span>
-                </button>
-
-                <button onclick="setActiveTab('tab-saison')" id="btn-tab-saison" class="tab-btn w-full text-left px-3 py-2.5 rounded-xl text-xs sm:text-sm font-medium transition-all duration-200 text-stone-400 hover:text-stone-200 hover:bg-stone-800/60 flex items-center gap-3">
-                    <span class="text-lg shrink-0">📈</span>
-                    <span class="sidebar-text truncate">6. Montée en Charge & Mois</span>
-                </button>
-
-                <button onclick="setActiveTab('tab-tresorerie')" id="btn-tab-tresorerie" class="tab-btn w-full text-left px-3 py-2.5 rounded-xl text-xs sm:text-sm font-medium transition-all duration-200 text-stone-400 hover:text-stone-200 hover:bg-stone-800/60 flex items-center gap-3">
-                    <span class="text-lg shrink-0">💰</span>
-                    <span class="sidebar-text truncate">7. Trésorerie 12-36 Mois</span>
-                </button>
-
-                <button onclick="setActiveTab('tab-scenarios')" id="btn-tab-scenarios" class="tab-btn w-full text-left px-3 py-2.5 rounded-xl text-xs sm:text-sm font-medium transition-all duration-200 text-stone-400 hover:text-stone-200 hover:bg-stone-800/60 flex items-center gap-3">
-                    <span class="text-lg shrink-0">⚖️</span>
-                    <span class="sidebar-text truncate">8. Scénarios & Sensibilité</span>
-                </button>
-            </div>
-
-            <div id="sidebar-footer" class="p-3 border-t border-stone-800 text-[11px] text-stone-500 text-center">
-                <span class="sidebar-text">Tunis Pro v3.0 • TND</span>
-            </div>
-        </aside>
-
-        <!-- Main Content Area -->
-        <main class="flex-grow p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto w-full overflow-x-hidden">
-
-            <!-- ================= TAB 1: RESULTATS & DASHBOARD ================= -->
-            <section id="tab-resultats" class="tab-pane block space-y-8">
-                
-                <!-- Alerts Banner -->
-                <div id="alerts-container" class="space-y-2">
-                    <!-- Dynamic validation warnings -->
-                </div>
-
-                <!-- KPI Cards Grid -->
-                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                    <div class="bg-stone-900 border border-stone-800 rounded-2xl p-5 shadow-lg relative overflow-hidden">
-                        <div class="absolute top-0 right-0 w-2 h-full bg-amber-500"></div>
-                        <span class="text-xs font-semibold uppercase tracking-wider text-stone-400">CA Net HT (An 1)</span>
-                        <p id="kpi-ca-annuel" class="text-2xl sm:text-3xl font-extrabold text-white mt-1">0 TND</p>
-                        <p id="kpi-ca-mensuel" class="text-xs font-medium text-amber-400 mt-2">Moyenne mensuelle: 0 TND</p>
-                    </div>
-
-                    <div class="bg-stone-900 border border-stone-800 rounded-2xl p-5 shadow-lg relative overflow-hidden">
-                        <div class="absolute top-0 right-0 w-2 h-full bg-emerald-500"></div>
-                        <span class="text-xs font-semibold uppercase tracking-wider text-stone-400">EBITDA Exploitation</span>
-                        <p id="kpi-ebitda" class="text-2xl sm:text-3xl font-extrabold text-emerald-400 mt-1">0 TND</p>
-                        <p id="kpi-marge-ebitda" class="text-xs font-medium text-stone-400 mt-2">Marge EBITDA: 0%</p>
-                    </div>
-
-                    <div class="bg-stone-900 border border-stone-800 rounded-2xl p-5 shadow-lg relative overflow-hidden">
-                        <div class="absolute top-0 right-0 w-2 h-full bg-blue-500"></div>
-                        <span class="text-xs font-semibold uppercase tracking-wider text-stone-400">Point Mort (Seuil Rentabilité)</span>
-                        <p id="kpi-point-mort" class="text-2xl sm:text-3xl font-extrabold text-blue-400 mt-1">0 TND</p>
-                        <p id="kpi-clients-req" class="text-xs font-medium text-stone-300 mt-2">≈ 0 tickets / jour requis</p>
-                    </div>
-
-                    <div class="bg-stone-900 border border-stone-800 rounded-2xl p-5 shadow-lg relative overflow-hidden">
-                        <div class="absolute top-0 right-0 w-2 h-full bg-amber-400"></div>
-                        <span class="text-xs font-semibold uppercase tracking-wider text-stone-400">Retour sur Investissement (ROI)</span>
-                        <p id="kpi-roi" class="text-2xl sm:text-3xl font-extrabold text-amber-400 mt-1">0 mois</p>
-                        <p id="kpi-net-annuel" class="text-xs font-medium text-stone-300 mt-2">Bénéfice Net An 1: 0 TND</p>
-                    </div>
-                </div>
-
-                <!-- Charts Section -->
-                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    <div class="bg-stone-900 border border-stone-800 rounded-2xl p-6 shadow-xl flex flex-col items-center">
-                        <h3 class="text-base font-bold text-amber-400 self-start mb-4">Répartition des Coûts & Dépenses</h3>
-                        <div class="w-full h-64 sm:h-72 relative">
-                            <canvas id="chartCharges"></canvas>
-                        </div>
-                    </div>
-
-                    <div class="bg-stone-900 border border-stone-800 rounded-2xl p-6 shadow-xl flex flex-col items-center">
-                        <h3 class="text-base font-bold text-amber-400 self-start mb-4">Trésorerie & Solde Mensuel sur 12 Mois</h3>
-                        <div class="w-full h-64 sm:h-72 relative">
-                            <canvas id="chartCashflow"></canvas>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Income Statement Table -->
-                <div class="bg-stone-900 border border-stone-800 rounded-2xl p-6 shadow-xl space-y-4">
-                    <div class="flex flex-col sm:flex-row justify-between sm:items-center gap-2 border-b border-stone-800 pb-4">
-                        <h3 class="text-lg font-bold text-amber-400">Compte de Résultat Prévisionnel & Fiscalité Tunisienne (IS + CSS)</h3>
-                        <span class="text-xs text-stone-500">Calculé en TND (HT & TVA dissociées)</span>
-                    </div>
-                    
-                    <div class="overflow-x-auto">
-                        <table class="w-full text-left text-xs sm:text-sm">
-                            <thead>
-                                <tr class="border-b border-stone-800 text-stone-400 font-semibold uppercase tracking-wider">
-                                    <th class="py-3 px-3">Poste Financier</th>
-                                    <th class="py-3 px-3 text-right">Moyenne Mensuelle</th>
-                                    <th class="py-3 px-3 text-right">Total Annuel (An 1)</th>
-                                    <th class="py-3 px-3 text-right">% du CA HT</th>
-                                </tr>
-                            </thead>
-                            <tbody id="table-income-statement" class="divide-y divide-stone-800/60 font-medium">
-                                <!-- Populated dynamically -->
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-
-            </section>
-
-            <!-- ================= TAB 2: CAPEX & FINANCEMENT ================= -->
-            <section id="tab-capex" class="tab-pane hidden space-y-6">
-                <div class="bg-stone-900 border border-stone-800 rounded-2xl p-6 sm:p-8 shadow-xl space-y-6">
-                    <div class="border-b border-stone-800 pb-4 flex justify-between items-center flex-wrap gap-4">
-                        <div>
-                            <h2 class="text-xl font-bold text-amber-400">2. Investissement Initial (CAPEX) & Plan de Financement</h2>
-                            <p class="text-sm text-stone-400 mt-1">Équipements, travaux, caution, apport personnel et crédit bancaire.</p>
-                        </div>
-                        <div class="p-3 bg-stone-950 border border-amber-500/30 rounded-xl text-right">
-                            <span class="text-xs text-stone-400 block">Total Investissement (CAPEX) :</span>
-                            <span id="total-capex" class="text-xl font-extrabold text-amber-400">0 TND</span>
-                        </div>
-                    </div>
-
-                    <!-- CAPEX Details Accordions / Inputs -->
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <!-- Matériel -->
-                        <div class="bg-stone-950/60 p-5 rounded-xl border border-stone-800 space-y-3">
-                            <h3 class="font-bold text-amber-400 text-sm border-b border-stone-800 pb-2">🛠️ Équipements & Barista Pro</h3>
-                            <div class="space-y-3">
-                                <div>
-                                    <div class="flex justify-between text-xs mb-1"><label>Machine Espresso Pro :</label><input type="number" id="num-capex-machine" class="w-24 bg-stone-900 text-amber-400 text-right px-2 py-0.5 rounded border border-stone-700 text-xs" oninput="syncInput('capex-machine', this.value)"></div>
-                                    <input type="range" id="capex-machine" min="0" max="35000" step="500" value="12000" class="w-full" oninput="syncRange('capex-machine', this.value)">
-                                </div>
-                                <div>
-                                    <div class="flex justify-between text-xs mb-1"><label>Moulins, Crêpières & Gaufriers :</label><input type="number" id="num-capex-cuisine" class="w-24 bg-stone-900 text-amber-400 text-right px-2 py-0.5 rounded border border-stone-700 text-xs" oninput="syncInput('capex-cuisine', this.value)"></div>
-                                    <input type="range" id="capex-cuisine" min="0" max="25000" step="500" value="8000" class="w-full" oninput="syncRange('capex-cuisine', this.value)">
-                                </div>
-                                <div>
-                                    <div class="flex justify-between text-xs mb-1"><label>Frigos, Vitrines & Glaçons :</label><input type="number" id="num-capex-froid" class="w-24 bg-stone-900 text-amber-400 text-right px-2 py-0.5 rounded border border-stone-700 text-xs" oninput="syncInput('capex-froid', this.value)"></div>
-                                    <input type="range" id="capex-froid" min="0" max="30000" step="500" value="11000" class="w-full" oninput="syncRange('capex-froid', this.value)">
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Travaux & Mobilier -->
-                        <div class="bg-stone-950/60 p-5 rounded-xl border border-stone-800 space-y-3">
-                            <h3 class="font-bold text-amber-400 text-sm border-b border-stone-800 pb-2">🎨 Travaux, Déco & Mobilier</h3>
-                            <div class="space-y-3">
-                                <div>
-                                    <div class="flex justify-between text-xs mb-1"><label>Aménagement, Peinture & Climatisation :</label><input type="number" id="num-capex-travaux" class="w-24 bg-stone-900 text-amber-400 text-right px-2 py-0.5 rounded border border-stone-700 text-xs" oninput="syncInput('capex-travaux', this.value)"></div>
-                                    <input type="range" id="capex-travaux" min="0" max="50000" step="1000" value="25000" class="w-full" oninput="syncRange('capex-travaux', this.value)">
-                                </div>
-                                <div>
-                                    <div class="flex justify-between text-xs mb-1"><label>Comptoir, Tables & Terrasse :</label><input type="number" id="num-capex-mobilier" class="w-24 bg-stone-900 text-amber-400 text-right px-2 py-0.5 rounded border border-stone-700 text-xs" oninput="syncInput('capex-mobilier', this.value)"></div>
-                                    <input type="range" id="capex-mobilier" min="0" max="30000" step="500" value="15000" class="w-full" oninput="syncRange('capex-mobilier', this.value)">
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Caution & BFR (Non Amortissables en charges d'exploitation) -->
-                        <div class="bg-stone-950/60 p-5 rounded-xl border border-stone-800 space-y-3 md:col-span-2">
-                            <h3 class="font-bold text-amber-400 text-sm border-b border-stone-800 pb-2">📑 Caution, Juridique, POS & BFR (Non Amortissables)</h3>
-                            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                <div>
-                                    <div class="flex justify-between text-xs mb-1"><label>Caution Loyer (Récupérable) :</label><input type="number" id="num-capex-caution" class="w-24 bg-stone-900 text-amber-400 text-right px-2 py-0.5 rounded border border-stone-700 text-xs" oninput="syncInput('capex-caution', this.value)"></div>
-                                    <input type="range" id="capex-caution" min="0" max="50000" step="500" value="15000" class="w-full" oninput="syncRange('capex-caution', this.value)">
-                                </div>
-                                <div>
-                                    <div class="flex justify-between text-xs mb-1"><label>Stock Initial & Emballages (BFR) :</label><input type="number" id="num-capex-stock" class="w-24 bg-stone-900 text-amber-400 text-right px-2 py-0.5 rounded border border-stone-700 text-xs" oninput="syncInput('capex-stock', this.value)"></div>
-                                    <input type="range" id="capex-stock" min="0" max="30000" step="500" value="7000" class="w-full" oninput="syncRange('capex-stock', this.value)">
-                                </div>
-                                <div>
-                                    <div class="flex justify-between text-xs mb-1"><label>Frais Juridiques, POS & Licences :</label><input type="number" id="num-capex-frais" class="w-24 bg-stone-900 text-amber-400 text-right px-2 py-0.5 rounded border border-stone-700 text-xs" oninput="syncInput('capex-frais', this.value)"></div>
-                                    <input type="range" id="capex-frais" min="0" max="15000" step="250" value="5000" class="w-full" oninput="syncRange('capex-frais', this.value)">
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Financement Plan -->
-                    <div class="bg-stone-950/80 p-6 rounded-xl border border-amber-500/30 space-y-4">
-                        <h3 class="font-bold text-amber-400 text-base">Plan de Financement & Crédit Bancaire</h3>
-                        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                            <div>
-                                <div class="flex justify-between text-xs mb-1"><label>Apport Personnel (Fonds propres) :</label><span id="disp-apport" class="font-bold text-amber-400">40 000 TND</span></div>
-                                <input type="range" id="input-apport" min="5000" max="150000" step="1000" value="40000" class="w-full" oninput="recalculateAll()">
-                            </div>
-                            <div>
-                                <div class="flex justify-between text-xs mb-1"><label>Taux d'Intérêt Bancaire (Annuel) :</label><span id="disp-taux-pret" class="font-bold text-amber-400">10.5 %</span></div>
-                                <input type="range" id="input-taux-pret" min="6" max="18" step="0.5" value="10.5" class="w-full" oninput="recalculateAll()">
-                            </div>
-                            <div>
-                                <div class="flex justify-between text-xs mb-1"><label>Durée du Crédit (Mois) :</label><span id="disp-duree-pret" class="font-bold text-amber-400">60 mois</span></div>
-                                <input type="range" id="input-duree-pret" min="12" max="84" step="12" value="60" class="w-full" oninput="recalculateAll()">
-                            </div>
-                        </div>
-                        <div class="flex justify-between items-center pt-3 border-t border-stone-800 text-sm">
-                            <span class="text-stone-300">Crédit Bancaire Nécessaire : <strong id="val-emprunt" class="text-white">0 TND</strong></span>
-                            <span class="text-stone-300">Mensualité du Crédit : <strong id="val-mensualite-credit" class="text-amber-400">0 TND / mois</strong></span>
-                        </div>
-                    </div>
-                </div>
-            </section>
-
-            <!-- ================= TAB 3: PRODUITS, TVA & CAPACITE ================= -->
-            <section id="tab-produits" class="tab-pane hidden space-y-6">
-                <div class="bg-stone-900 border border-stone-800 rounded-2xl p-6 sm:p-8 shadow-xl space-y-6">
-                    <div class="border-b border-stone-800 pb-4">
-                        <h2 class="text-xl font-bold text-amber-400">3. Catalogue Produits, TVA & Capacité d'Accueil</h2>
-                        <p class="text-sm text-stone-400 mt-1">Définissez vos prix de vente TTC, TVA, coûts matières, emballages et commissions de livraison.</p>
-                    </div>
-
-                    <!-- Capacité Physique du Local -->
-                    <div class="bg-stone-950/80 p-5 rounded-xl border border-amber-500/20 grid grid-cols-1 sm:grid-cols-3 gap-4">
-                        <div>
-                            <div class="flex justify-between text-xs mb-1"><label>Places Assises (Capacité) :</label><span id="disp-places" class="font-bold text-amber-400">35 places</span></div>
-                            <input type="range" id="input-places" min="10" max="100" step="5" value="35" class="w-full" oninput="recalculateAll()">
-                        </div>
-                        <div>
-                            <div class="flex justify-between text-xs mb-1"><label>Rotation des Tables / jour :</label><span id="disp-rotation" class="font-bold text-amber-400">5.5 rotations</span></div>
-                            <input type="range" id="input-rotation" min="2" max="12" step="0.5" value="5.5" class="w-full" oninput="recalculateAll()">
-                        </div>
-                        <div>
-                            <div class="flex justify-between text-xs mb-1"><label>Jours Ouverts / Mois :</label><span id="disp-jours" class="font-bold text-amber-400">28 jours</span></div>
-                            <input type="range" id="input-jours" min="20" max="31" step="1" value="28" class="w-full" oninput="recalculateAll()">
-                        </div>
-                    </div>
-
-                    <!-- Dynamic Product Categories Table / Grid -->
-                    <div id="product-categories-container" class="space-y-4">
-                        <!-- Populated dynamically -->
-                    </div>
-                </div>
-            </section>
-
-            <!-- ================= TAB 4: RH & CHARGES SOCIALES ================= -->
-            <section id="tab-rh" class="tab-pane hidden space-y-6">
-                <div class="bg-stone-900 border border-stone-800 rounded-2xl p-6 sm:p-8 shadow-xl space-y-6">
-                    <div class="border-b border-stone-800 pb-4">
-                        <h2 class="text-xl font-bold text-amber-400">4. Masse Salariale & Charges Patronales en Tunisie</h2>
-                        <p class="text-sm text-stone-400 mt-1">Calcul rigoureux sur le salaire BRUT (CNSS 16,57%, TFP 1%, FOPROLOS 0,5%, Assurance accident, Rémunération du Porteur).</p>
-                    </div>
-
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div class="bg-stone-950/60 p-5 rounded-xl border border-stone-800 space-y-4">
-                            <h3 class="font-bold text-amber-400 text-sm border-b border-stone-800 pb-2">👨‍🍳 Équipe Salle, Barista & Cuisine</h3>
-                            <div class="space-y-3">
-                                <div>
-                                    <div class="flex justify-between text-xs mb-1"><label>Effectif Équipe (Temps plein) :</label><span id="disp-nb-equipe" class="font-bold text-amber-400">5 pers</span></div>
-                                    <input type="range" id="input-nb-equipe" min="2" max="15" step="1" value="5" class="w-full" oninput="recalculateAll()">
-                                </div>
-                                <div>
-                                    <div class="flex justify-between text-xs mb-1"><label>Salaire Brut Mensuel Moyen / pers :</label><span id="disp-sal-brut" class="font-bold text-amber-400">950 TND</span></div>
-                                    <input type="range" id="input-sal-brut" min="600" max="2500" step="50" value="950" class="w-full" oninput="recalculateAll()">
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="bg-stone-950/60 p-5 rounded-xl border border-stone-800 space-y-4">
-                            <h3 class="font-bold text-amber-400 text-sm border-b border-stone-800 pb-2">💼 Rémunération du Porteur / Gérant</h3>
-                            <div class="space-y-3">
-                                <div>
-                                    <div class="flex justify-between text-xs mb-1"><label>Salaire Brut Gérant / Manager :</label><span id="disp-sal-gerant" class="font-bold text-amber-400">1 800 TND</span></div>
-                                    <input type="range" id="input-sal-gerant" min="0" max="5000" step="100" value="1800" class="w-full" oninput="recalculateAll()">
-                                </div>
-                                <div>
-                                    <div class="flex justify-between text-xs mb-1"><label>Taux de Charges Patronales Global (CNSS + TFP + FOPROLOS) :</label><span id="disp-taux-patronal" class="font-bold text-amber-400">21.0 %</span></div>
-                                    <input type="range" id="input-taux-patronal" min="18" max="25" step="0.5" value="21.0" class="w-full" oninput="recalculateAll()">
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="p-4 bg-stone-950 border border-amber-500/30 rounded-xl flex justify-between items-center">
-                        <span class="text-stone-300 font-medium">Coût Salarial Brut Total + Charges Patronales :</span>
-                        <span id="total-masse-salariale" class="text-xl font-extrabold text-amber-400">0 TND / mois</span>
-                    </div>
-                </div>
-            </section>
-
-            <!-- ================= TAB 5: EXPLOITATION & CHARGES FIXES ================= -->
-            <section id="tab-charges" class="tab-pane hidden space-y-6">
-                <div class="bg-stone-900 border border-stone-800 rounded-2xl p-6 sm:p-8 shadow-xl space-y-6">
-                    <div class="border-b border-stone-800 pb-4">
-                        <h2 class="text-xl font-bold text-amber-400">5. Charges d'Exploitation & Frais Fixes</h2>
-                        <p class="text-sm text-stone-400 mt-1">Loyer, STEG, eau, comptabilité, marketing, entretien et inflation annuelle.</p>
-                    </div>
-
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div class="bg-stone-950/60 p-4 rounded-xl border border-stone-800">
-                            <div class="flex justify-between text-xs mb-1"><label>Loyer Commercial Mensuel :</label><span id="disp-loyer" class="font-bold text-amber-400">2 800 TND</span></div>
-                            <input type="range" id="input-loyer" min="800" max="15000" step="100" value="2800" class="w-full" oninput="recalculateAll()">
-                        </div>
-                        <div class="bg-stone-950/60 p-4 rounded-xl border border-stone-800">
-                            <div class="flex justify-between text-xs mb-1"><label>Électricité & Gaz (STEG) :</label><span id="disp-steg" class="font-bold text-amber-400">1 300 TND</span></div>
-                            <input type="range" id="input-steg" min="300" max="5000" step="50" value="1300" class="w-full" oninput="recalculateAll()">
-                        </div>
-                        <div class="bg-stone-950/60 p-4 rounded-xl border border-stone-800">
-                            <div class="flex justify-between text-xs mb-1"><label>Eau (SONEDE) & Internet / Wifi :</label><span id="disp-sonede" class="font-bold text-amber-400">350 TND</span></div>
-                            <input type="range" id="input-sonede" min="100" max="1500" step="25" value="350" class="w-full" oninput="recalculateAll()">
-                        </div>
-                        <div class="bg-stone-950/60 p-4 rounded-xl border border-stone-800">
-                            <div class="flex justify-between text-xs mb-1"><label>Marketing, Réseaux Sociaux & Pub :</label><span id="disp-marketing" class="font-bold text-amber-400">800 TND</span></div>
-                            <input type="range" id="input-marketing" min="100" max="4000" step="50" value="800" class="w-full" oninput="recalculateAll()">
-                        </div>
-                        <div class="bg-stone-950/60 p-4 rounded-xl border border-stone-800">
-                            <div class="flex justify-between text-xs mb-1"><label>Comptabilité, Logiciel Caisse & Hygiène :</label><span id="disp-compta" class="font-bold text-amber-400">600 TND</span></div>
-                            <input type="range" id="input-compta" min="200" max="2500" step="50" value="600" class="w-full" oninput="recalculateAll()">
-                        </div>
-                        <div class="bg-stone-950/60 p-4 rounded-xl border border-stone-800">
-                            <div class="flex justify-between text-xs mb-1"><label>Inflation Annuelle (Salaires & Loyers) :</label><span id="disp-inflation" class="font-bold text-amber-400">3.5 %</span></div>
-                            <input type="range" id="input-inflation" min="0" max="10" step="0.5" value="3.5" class="w-full" oninput="recalculateAll()">
-                        </div>
-                    </div>
-                </div>
-            </section>
-
-            <!-- ================= TAB 6: MONTEE EN CHARGE & SAISONNALITE ================= -->
-            <section id="tab-saison" class="tab-pane hidden space-y-6">
-                <div class="bg-stone-900 border border-stone-800 rounded-2xl p-6 sm:p-8 shadow-xl space-y-6">
-                    <div class="border-b border-stone-800 pb-4">
-                        <h2 class="text-xl font-bold text-amber-400">6. Courbe de Montée en Charge & Saisonnalité sur 12 Mois</h2>
-                        <p class="text-sm text-stone-400 mt-1">Le démarrage d'un café progresse progressivement. Ajustez le % du CA atteint par mois et les coefficients saisonniers.</p>
-                    </div>
-
-                    <div class="bg-stone-950/80 p-5 rounded-xl border border-amber-500/20 grid grid-cols-1 sm:grid-cols-3 gap-4">
-                        <div>
-                            <div class="flex justify-between text-xs mb-1"><label>Mois 1 (Démarrage) :</label><span id="disp-m1" class="font-bold text-amber-400">55 %</span></div>
-                            <input type="range" id="input-m1" min="30" max="90" step="5" value="55" class="w-full" oninput="recalculateAll()">
-                        </div>
-                        <div>
-                            <div class="flex justify-between text-xs mb-1"><label>Mois 3 (Stabilisation) :</label><span id="disp-m3" class="font-bold text-amber-400">75 %</span></div>
-                            <input type="range" id="input-m3" min="50" max="100" step="5" value="75" class="w-full" oninput="recalculateAll()">
-                        </div>
-                        <div>
-                            <div class="flex justify-between text-xs mb-1"><label>Mois 6+ (Régime de croisière) :</label><span id="disp-m6" class="font-bold text-amber-400">100 %</span></div>
-                            <input type="range" id="input-m6" min="70" max="130" step="5" value="100" class="w-full" oninput="recalculateAll()">
-                        </div>
-                    </div>
-
-                    <!-- 12 Months Seasonality Coefficients Table -->
-                    <div class="space-y-3">
-                        <h3 class="font-bold text-amber-400 text-sm">Coefficients Saisonniers Mensuels (Janvier à Décembre)</h3>
-                        <div class="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-3" id="seasonality-inputs-container">
-                            <!-- Populated dynamically -->
-                        </div>
-                    </div>
-                </div>
-            </section>
-
-            <!-- ================= TAB 7: TRESORERIE 12-36 MOIS ================= -->
-            <section id="tab-tresorerie" class="tab-pane hidden space-y-6">
-                <div class="bg-stone-900 border border-stone-800 rounded-2xl p-6 sm:p-8 shadow-xl space-y-6">
-                    <div class="border-b border-stone-800 pb-4">
-                        <h2 class="text-xl font-bold text-amber-400">7. Plan de Trésorerie Prévisionnel sur 12 Mois</h2>
-                        <p class="text-sm text-stone-400 mt-1">Suivi du cash disponible, encaissements, décaissements et point bas de trésorerie.</p>
-                    </div>
-
-                    <div class="overflow-x-auto">
-                        <table class="w-full text-left text-xs sm:text-sm">
-                            <thead>
-                                <tr class="border-b border-stone-800 text-stone-400 font-semibold uppercase tracking-wider">
-                                    <th class="py-3 px-2">Mois</th>
-                                    <th class="py-3 px-2 text-right">CA TTC</th>
-                                    <th class="py-3 px-2 text-right">Décaissements</th>
-                                    <th class="py-3 px-2 text-right">Crédit</th>
-                                    <th class="py-3 px-2 text-right">Flux Net Mois</th>
-                                    <th class="py-3 px-2 text-right font-bold text-amber-400">Trésorerie Finale</th>
-                                </tr>
-                            </thead>
-                            <tbody id="table-cashflow-monthly" class="divide-y divide-stone-800/60 font-medium">
-                                <!-- Populated dynamically -->
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </section>
-
-            <!-- ================= TAB 8: SCENARIOS & SENSIBILITE ================= -->
-            <section id="tab-scenarios" class="tab-pane hidden space-y-6">
-                <div class="bg-stone-900 border border-stone-800 rounded-2xl p-6 sm:p-8 shadow-xl space-y-6">
-                    <div class="border-b border-stone-800 pb-4">
-                        <h2 class="text-xl font-bold text-amber-400">8. Comparatif Scénarios & Analyse de Sensibilité</h2>
-                        <p class="text-sm text-stone-400 mt-1">Comparez les hypothèses Pessimiste, Réaliste et Optimiste et mesurez l'impact d'une baisse de 10% des ventes.</p>
-                    </div>
-
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6" id="scenarios-comparison-container">
-                        <!-- Populated dynamically -->
-                    </div>
-
-                    <div class="bg-stone-950/80 p-5 rounded-xl border border-stone-800 space-y-4">
-                        <h3 class="font-bold text-amber-400 text-sm">Analyse de Sensibilité (-10% sur le CA)</h3>
-                        <div id="sensitivity-result" class="text-sm text-stone-300">
-                            <!-- Populated dynamically -->
-                        </div>
-                    </div>
-                </div>
-            </section>
-
-        </main>
-    </div>
-
-    <!-- JavaScript Application Logic v3.0 -->
-    <script>
-        // Product Data structure with TVA and packaging costs
-        const productCategories = [
-            { id: 'boissons', name: 'Cafés Espressos & Chauds', icon: '☕', q: 140, pTTC: 4.0, tva: 0.19, cMat: 1.1, cEmbal: 0.15 },
-            { id: 'frappes', name: 'Iced Coffee & Frappés', icon: '🥤', q: 40, pTTC: 7.5, tva: 0.19, cMat: 2.2, cEmbal: 0.30 },
-            { id: 'jus', name: 'Jus Frais & Smoothies', icon: '🍹', q: 35, pTTC: 7.0, tva: 0.19, cMat: 2.1, cEmbal: 0.30 },
-            { id: 'sodas', name: 'Sodas & Eaux', icon: '🍾', q: 50, pTTC: 3.0, tva: 0.19, cMat: 1.0, cEmbal: 0.10 },
-            { id: 'crepesuc', name: 'Crêpes Sucrées (Nutella...)', icon: '🥞', q: 60, pTTC: 8.5, tva: 0.19, cMat: 2.5, cEmbal: 0.50 },
-            { id: 'crepesal', name: 'Crêpes Salées & Galettes', icon: '🧀', q: 35, pTTC: 11.5, tva: 0.19, cMat: 4.0, cEmbal: 0.60 },
-            { id: 'gaufres', name: 'Gaufres & Pancakes', icon: '🧇', q: 25, pTTC: 9.0, tva: 0.19, cMat: 2.7, cEmbal: 0.50 },
-            { id: 'sandwiches', name: 'Sandwichs & Paninis', icon: '🥪', q: 30, pTTC: 9.0, tva: 0.19, cMat: 3.2, cEmbal: 0.50 },
-            { id: 'viennoiserie', name: 'Viennoiseries', icon: '🥐', q: 45, pTTC: 2.5, tva: 0.19, cMat: 0.9, cEmbal: 0.10 },
-            // Catégories supplémentaires du catalogue — valeurs initiales indicatives et modifiables.
-            { id: 'gateaux', name: 'Gâteaux & Parts de Gâteau', icon: '🍰', q: 18, pTTC: 6.0, tva: 0.19, cMat: 2.2, cEmbal: 0.30 },
-            { id: 'chicha', name: 'Chicha / Service', icon: '♨️', q: 8, pTTC: 12.0, tva: 0.19, cMat: 4.0, cEmbal: 0.20 },
-            { id: 'petitdej2', name: 'Formule Petit-Déjeuner (2 personnes)', icon: '🍳', q: 6, pTTC: 18.0, tva: 0.19, cMat: 7.0, cEmbal: 1.0 },
-            { id: 'brunch4', name: 'Formule Brunch (4 personnes)', icon: '🥐', q: 4, pTTC: 28.0, tva: 0.19, cMat: 12.0, cEmbal: 1.5 },
-            { id: 'petitdej1', name: 'Formule Petit-Déjeuner (1 personne)', icon: '🥐', q: 12, pTTC: 9.0, tva: 0.19, cMat: 3.5, cEmbal: 0.50 },
-            { id: 'brunch2', name: 'Formule Brunch (2 personnes)', icon: '🥞', q: 5, pTTC: 19.0, tva: 0.19, cMat: 8.0, cEmbal: 1.0 }
-        ];
-
-        let seasonalityCoefs = [0.9, 0.9, 1.0, 1.1, 1.1, 1.3, 1.4, 1.4, 1.0, 1.0, 1.0, 1.2]; // Jan to Dec
-
-        let isSidebarCollapsed = false;
-
-        function toggleSidebarCollapse() {
-            const sidebar = document.getElementById('sidebar');
-            const icon = document.getElementById('collapse-icon');
-            const texts = document.querySelectorAll('.sidebar-text');
-            const label = document.getElementById('sidebar-label');
-
-            isSidebarCollapsed = !isSidebarCollapsed;
-
-            if (isSidebarCollapsed) {
-                sidebar.classList.remove('w-64');
-                sidebar.classList.add('w-16');
-                icon.classList.add('rotate-180');
-                texts.forEach(el => el.classList.add('hidden'));
-                if (label) label.classList.add('hidden');
-            } else {
-                sidebar.classList.remove('w-16');
-                sidebar.classList.add('w-64');
-                icon.classList.remove('rotate-180');
-                texts.forEach(el => el.classList.remove('hidden'));
-                if (label) label.classList.remove('hidden');
-            }
-        }
-
-        function initProductInputs() {
-            const container = document.getElementById('product-categories-container');
-            if (!container) return;
-            container.innerHTML = productCategories.map(cat => `
-                <div class="p-4 bg-stone-950/60 rounded-xl border border-stone-800 space-y-3">
-                    <div class="flex items-center gap-2 text-amber-400 font-bold border-b border-stone-800 pb-2 text-sm">
-                        <span>${cat.icon}</span>
-                        <h3>${cat.name}</h3>
-                    </div>
-                    <div class="grid grid-cols-1 sm:grid-cols-4 gap-4">
-                        <div>
-                            <div class="flex justify-between text-xs mb-1"><label>Ventes / jour :</label><span id="disp-q-${cat.id}" class="font-bold text-amber-400">${cat.q}</span></div>
-                            <input type="range" id="input-q-${cat.id}" min="0" max="300" step="5" value="${cat.q}" class="w-full" oninput="recalculateAll()">
-                        </div>
-                        <div>
-                            <div class="flex justify-between text-xs mb-1"><label>Prix TTC (TND) :</label><span id="disp-p-${cat.id}" class="font-bold text-amber-400">${cat.pTTC.toFixed(1)}</span></div>
-                            <input type="range" id="input-p-${cat.id}" min="1" max="30" step="0.5" value="${cat.pTTC}" class="w-full" oninput="recalculateAll()">
-                        </div>
-                        <div>
-                            <div class="flex justify-between text-xs mb-1"><label>Coût Matière :</label><span id="disp-cm-${cat.id}" class="font-bold text-amber-400">${cat.cMat.toFixed(2)}</span></div>
-                            <input type="range" id="input-cm-${cat.id}" min="0.2" max="15" step="0.1" value="${cat.cMat}" class="w-full" oninput="recalculateAll()">
-                        </div>
-                        <div>
-                            <div class="flex justify-between text-xs mb-1"><label>Coût Emballage :</label><span id="disp-ce-${cat.id}" class="font-bold text-amber-400">${cat.cEmbal.toFixed(2)}</span></div>
-                            <input type="range" id="input-ce-${cat.id}" min="0.05" max="2" step="0.05" value="${cat.cEmbal}" class="w-full" oninput="recalculateAll()">
-                        </div>
-                    </div>
-                </div>
-            `).join('');
-
-            const seasonContainer = document.getElementById('seasonality-inputs-container');
-            if (seasonContainer) {
-                const monthNames = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Août', 'Sep', 'Oct', 'Nov', 'Déc'];
-                seasonContainer.innerHTML = seasonalityCoefs.map((val, idx) => `
-                    <div class="bg-stone-950 p-3 rounded-lg border border-stone-800 text-center space-y-1">
-                        <span class="text-xs text-stone-400 font-semibold">${monthNames[idx]}</span>
-                        <input type="number" id="season-${idx}" value="${Math.round(val * 100)}" min="40" max="200" step="5" class="w-full bg-stone-900 text-amber-400 text-center py-1 rounded border border-stone-700 text-xs" oninput="updateSeasonality(${idx}, this.value)">
-                    </div>
-                `).join('');
-            }
-        }
-
-        function updateSeasonality(idx, val) {
-            seasonalityCoefs[idx] = parseFloat(val) / 100;
-            recalculateAll();
-        }
-
-        function syncInput(id, val) {
-            const rangeEl = document.getElementById(id);
-            if (rangeEl) rangeEl.value = val;
-            recalculateAll();
-        }
-
-        function syncRange(id, val) {
-            const numEl = document.getElementById('num-' + id);
-            if (numEl) numEl.value = val;
-            recalculateAll();
-        }
-
-        let chartChargesInstance = null;
-        let chartCashflowInstance = null;
-        let currentActiveTab = 'tab-resultats';
-
-        function setActiveTab(tabId) {
-            currentActiveTab = tabId;
-            document.querySelectorAll('.tab-pane').forEach(p => { p.classList.add('hidden'); p.classList.remove('block'); });
-            const target = document.getElementById(tabId);
-            if (target) { target.classList.remove('hidden'); target.classList.add('block'); }
-
-            document.querySelectorAll('.tab-btn').forEach(b => {
-                b.classList.remove('bg-amber-500', 'text-stone-950', 'shadow-md', 'shadow-amber-500/20', 'font-semibold');
-                b.classList.add('text-stone-400', 'hover:text-stone-200', 'hover:bg-stone-800/60', 'font-medium');
-            });
-            const btn = document.getElementById('btn-' + tabId);
-            if (btn) {
-                btn.classList.remove('text-stone-400', 'hover:text-stone-200', 'hover:bg-stone-800/60', 'font-medium');
-                btn.classList.add('bg-amber-500', 'text-stone-950', 'shadow-md', 'shadow-amber-500/20', 'font-semibold');
-            }
-            recalculateAll();
-            if (tabId === 'tab-resultats') renderCharts();
-        }
-
-        function formatMoney(amount) {
-            return Math.round(amount).toLocaleString('fr-FR') + ' TND';
-        }
-
-        function recalculateAll() {
-            const getVal = (id) => parseFloat(document.getElementById(id)?.value) || 0;
-
-            // CAPEX sync
-            ['machine', 'cuisine', 'froid', 'travaux', 'mobilier', 'caution', 'stock', 'frais'].forEach(key => {
-                const r = document.getElementById('capex-' + key);
-                const n = document.getElementById('num-capex-' + key);
-                if (r && n && document.activeElement !== n) n.value = r.value;
-            });
-
-            const capexMachine = getVal('capex-machine');
-            const capexCuisine = getVal('capex-cuisine');
-            const capexFroid = getVal('capex-froid');
-            const capexTravaux = getVal('capex-travaux');
-            const capexMobilier = getVal('capex-mobilier');
-            const capexCaution = getVal('capex-caution');
-            const capexStock = getVal('capex-stock');
-            const capexFrais = getVal('capex-frais');
-
-            // Total Capex including caution & stock for funding plan
-            const totalCapexWithBFR = capexMachine + capexCuisine + capexFroid + capexTravaux + capexMobilier + capexCaution + capexStock + capexFrais;
-            const elTotCapex = document.getElementById('total-capex');
-            if (elTotCapex) elTotCapex.innerText = formatMoney(totalCapexWithBFR);
-
-            // Depreciable Capex (excluding caution and stock BFR)
-            const depreciableCapex = capexMachine + capexCuisine + capexFroid + capexTravaux + capexMobilier + capexFrais;
-            const annualAmortization = depreciableCapex / 5; // 5 years standard
-
-            // Financing Plan
-            const apport = getVal('input-apport');
-            const dispApport = document.getElementById('disp-apport');
-            if (dispApport) dispApport.innerText = formatMoney(apport);
-
-            const besoinEmprunt = Math.max(0, totalCapexWithBFR - apport);
-            const elEmprunt = document.getElementById('val-emprunt');
-            if (elEmprunt) elEmprunt.innerText = formatMoney(besoinEmprunt);
-
-            const tauxPret = getVal('input-taux-pret') / 100;
-            const dispTaux = document.getElementById('disp-taux-pret');
-            if (dispTaux) dispTaux.innerText = (tauxPret * 100).toFixed(1) + ' %';
-
-            const dureePretMois = getVal('input-duree-pret');
-            const dispDuree = document.getElementById('disp-duree-pret');
-            if (dispDuree) dispDuree.innerText = dureePretMois + ' mois';
-
-            // Monthly loan payment formula: M = P [ i(1 + i)^n ] / [ (1 + i)^n – 1]
-            let mensualiteCredit = 0;
-            if (besoinEmprunt > 0 && tauxPret > 0) {
-                const i = tauxPret / 12;
-                mensualiteCredit = besoinEmprunt * (i * Math.pow(1 + i, dureePretMois)) / (Math.pow(1 + i, dureePretMois) - 1);
-            }
-            const elMensCred = document.getElementById('val-mensualite-credit');
-            if (elMensCred) elMensCred.innerText = formatMoney(mensualiteCredit) + ' / mois';
-
-            // Capacity check
-            const places = getVal('input-places');
-            const rotation = getVal('input-rotation');
-            const joursMois = getVal('input-jours');
-            document.getElementById('disp-places').innerText = places + ' places';
-            document.getElementById('disp-rotation').innerText = rotation + ' rot.';
-            document.getElementById('disp-jours').innerText = joursMois + ' jours';
-
-            const maxDailyCapacity = places * rotation;
-
-            // Products daily volume and HT calculation
-            let totalDailyTickets = 0;
-            let caJourTTC = 0;
-            let caJourHT = 0;
-            let cogsJour = 0; // Matières + Emballages
-
-            productCategories.forEach(cat => {
-                const q = getVal(`input-q-${cat.id}`);
-                const pTTC = getVal(`input-p-${cat.id}`);
-                const cMat = getVal(`input-cm-${cat.id}`);
-                const cEmbal = getVal(`input-ce-${cat.id}`);
-
-                document.getElementById(`disp-q-${cat.id}`).innerText = q;
-                document.getElementById(`disp-p-${cat.id}`).innerText = pTTC.toFixed(1);
-                document.getElementById(`disp-cm-${cat.id}`).innerText = cMat.toFixed(2);
-                document.getElementById(`disp-ce-${cat.id}`).innerText = cEmbal.toFixed(2);
-
-                totalDailyTickets += q;
-                caJourTTC += q * pTTC;
-                const pHT = pTTC / (1 + cat.tva);
-                caJourHT += q * pHT;
-                cogsJour += q * (cMat + cEmbal);
-            });
-
-            // HR Payroll & Employer Charges
-            const nbEquipe = getVal('input-nb-equipe');
-            document.getElementById('disp-nb-equipe').innerText = nbEquipe + ' pers';
-            const salBrut = getVal('input-sal-brut');
-            document.getElementById('disp-sal-brut').innerText = formatMoney(salBrut);
-            const salGerant = getVal('input-sal-gerant');
-            document.getElementById('disp-sal-gerant').innerText = formatMoney(salGerant);
-            const tauxPatronal = getVal('input-taux-patronal') / 100;
-            document.getElementById('disp-taux-patronal').innerText = (tauxPatronal * 100).toFixed(1) + ' %';
-
-            const totalBrutMensuel = (nbEquipe * salBrut) + salGerant;
-            const masseSalarialeMensuelleTotale = totalBrutMensuel * (1 + tauxPatronal);
-            const elMasse = document.getElementById('total-masse-salariale');
-            if (elMasse) elMasse.innerText = formatMoney(masseSalarialeMensuelleTotale) + ' / mois';
-
-            // Operating Charges
-            const loyer = getVal('input-loyer'); document.getElementById('disp-loyer').innerText = formatMoney(loyer);
-            const steg = getVal('input-steg'); document.getElementById('disp-steg').innerText = formatMoney(steg);
-            const sonede = getVal('input-sonede'); document.getElementById('disp-sonede').innerText = formatMoney(sonede);
-            const marketing = getVal('input-marketing'); document.getElementById('disp-marketing').innerText = formatMoney(marketing);
-            const compta = getVal('input-compta'); document.getElementById('disp-compta').innerText = formatMoney(compta);
-            const inflation = getVal('input-inflation') / 100; document.getElementById('disp-inflation').innerText = (inflation * 100).toFixed(1) + ' %';
-
-            const totalChargesFixesMensuelles = loyer + steg + sonede + marketing + compta;
-
-            // Ramp up coefficients
-            const rM1 = getVal('input-m1') / 100; document.getElementById('disp-m1').innerText = Math.round(rM1 * 100) + ' %';
-            const rM3 = getVal('input-m3') / 100; document.getElementById('disp-m3').innerText = Math.round(rM3 * 100) + ' %';
-            const rM6 = getVal('input-m6') / 100; document.getElementById('disp-m6').innerText = Math.round(rM6 * 100) + ' %';
-
-            // 12 Months Simulation loop
-            let annualCaHT = 0;
-            let annualCaTTC = 0;
-            let annualCogs = 0;
-            let annualFixedCosts = 0;
-            let annualPayroll = 0;
-            let monthlyCashflows = [];
-            let currentTreasury = apport;
-
-            for (let m = 1; m <= 12; m++) {
-                let rampFactor = rM1;
-                if (m === 2) rampFactor = (rM1 + rM3) / 2;
-                if (m === 3 || m === 4) rampFactor = rM3;
-                if (m === 5) rampFactor = (rM3 + rM6) / 2;
-                if (m >= 6) rampFactor = rM6;
-
-                const seas = seasonalityCoefs[m - 1];
-                const monthCaHT = caJourHT * joursMois * rampFactor * seas;
-                const monthCaTTC = caJourTTC * joursMois * rampFactor * seas;
-                const monthCogs = cogsJour * joursMois * rampFactor * seas;
-                const monthFixed = totalChargesFixesMensuelles * Math.pow(1 + inflation, (m - 1) / 12);
-                const monthPayroll = masseSalarialeMensuelleTotale * Math.pow(1 + inflation, (m - 1) / 12);
-
-                annualCaHT += monthCaHT;
-                annualCaTTC += monthCaTTC;
-                annualCogs += monthCogs;
-                annualFixedCosts += monthFixed;
-                annualPayroll += monthPayroll;
-
-                // Cashflow calculation for month
-                let cashIn = monthCaTTC;
-                let cashOut = monthCogs + monthFixed + monthPayroll + (m === 1 ? totalCapexWithBFR : 0) + (besoinEmprunt > 0 ? mensualiteCredit : 0);
-                if (m === 1) cashIn += besoinEmprunt;
-
-                let netCashMonth = cashIn - cashOut;
-                currentTreasury += netCashMonth;
-                monthlyCashflows.push({ month: m, caTTC: monthCaTTC, cashOut, net: netCashMonth, treasury: currentTreasury });
-            }
-
-            const ebitdaAnnuel = annualCaHT - annualCogs - annualFixedCosts - annualPayroll;
-            const margeEbitda = annualCaHT > 0 ? (ebitdaAnnuel / annualCaHT) * 100 : 0;
-            const ebitAnnuel = ebitdaAnnuel - annualAmortization;
-
-            // Tunisian Tax: IS 15% + CSS 3% on IS (or min tax)
-            let isTax = ebitAnnuel > 0 ? ebitAnnuel * 0.15 : 0;
-            let cssTax = isTax > 0 ? isTax * 0.03 : 100; // Minimum tax or CSS
-            let totalTax = isTax + cssTax;
-            let netProfit = ebitAnnuel - totalTax;
-
-            // Break-even annual
-            const grossMarginRatio = annualCaHT > 0 ? (annualCaHT - annualCogs) / annualCaHT : 0;
-            const totalAnnualFixed = annualFixedCosts + annualPayroll;
-            const breakEvenHT = grossMarginRatio > 0 ? totalAnnualFixed / grossMarginRatio : 0;
-            const breakEvenMonthlyHT = breakEvenHT / 12;
-            const averageTicketTTC = totalDailyTickets > 0 ? (caJourTTC / totalDailyTickets) : 5;
-            const breakEvenDailyTickets = averageTicketTTC > 0 ? (breakEvenMonthlyHT / joursMois) / (averageTicketTTC / 1.19) : 0;
-
-            const netMonthlyCash = (netProfit + annualAmortization) / 12;
-            const roiMonths = netMonthlyCash > 0 ? (totalCapexWithBFR / netMonthlyCash) : 999;
-
-            // Update UI KPIs
-            document.getElementById('kpi-ca-annuel').innerText = formatMoney(annualCaHT);
-            document.getElementById('kpi-ca-mensuel').innerText = `Mensuel moyen : ${formatMoney(annualCaHT / 12)}`;
-            document.getElementById('kpi-ebitda').innerText = formatMoney(ebitdaAnnuel);
-            document.getElementById('kpi-marge-ebitda').innerText = `Marge EBITDA : ${margeEbitda.toFixed(1)}%`;
-            document.getElementById('kpi-point-mort').innerText = formatMoney(breakEvenMonthlyHT) + ' HT/mois';
-            document.getElementById('kpi-clients-req').innerText = `≈ ${Math.ceil(breakEvenDailyTickets)} tickets/jour requis`;
-            document.getElementById('kpi-roi').innerText = roiMonths > 120 ? 'Non Rentable' : `${Math.round(roiMonths)} mois`;
-            document.getElementById('kpi-net-annuel').innerText = `Bénéfice Net : ${formatMoney(netProfit)} / an`;
-
-            // Validation Alerts Banner
-            const alertsEl = document.getElementById('alerts-container');
-            let alertsHtml = '';
-            if (totalDailyTickets > maxDailyCapacity * 1.2) {
-                alertsHtml += `<div class="p-3 bg-red-500/20 border border-red-500/40 rounded-xl text-xs text-red-300">⚠️ Alerte Capacité Physique : Vos volumes (${totalDailyTickets} tickets/jour) dépassent la capacité théorique de votre local (${maxDailyCapacity} max). Risque de saturation ou d'insatisfaction client.</div>`;
-            }
-            if ((annualPayroll / annualCaHT) > 0.35) {
-                alertsHtml += `<div class="p-3 bg-amber-500/20 border border-amber-500/40 rounded-xl text-xs text-amber-300">⚠️ Alerte Masse Salariale : Représente ${((annualPayroll/annualCaHT)*100).toFixed(1)}% du CA (recommandé < 35%).</div>`;
-            }
-            if (alertsEl) alertsEl.innerHTML = alertsHtml;
-
-            // Income Statement Table HTML
-            const tbody = document.getElementById('table-income-statement');
-            const getPct = (val) => annualCaHT > 0 ? ((val / annualCaHT) * 100).toFixed(1) + ' %' : '0 %';
-            if (tbody) {
-                tbody.innerHTML = `
-                    <tr><td class="py-2.5 px-3 font-semibold text-stone-200">Chiffre d'Affaires Net (HT)</td><td class="py-2.5 px-3 text-right">${formatMoney(annualCaHT/12)}</td><td class="py-2.5 px-3 text-right text-amber-400 font-bold">${formatMoney(annualCaHT)}</td><td class="py-2.5 px-3 text-right">100 %</td></tr>
-                    <tr class="text-stone-300"><td class="py-2.5 px-3">(-) Coût Matières & Emballages</td><td class="py-2.5 px-3 text-right text-red-400">-${formatMoney(annualCogs/12)}</td><td class="py-2.5 px-3 text-right text-red-400">-${formatMoney(annualCogs)}</td><td class="py-2.5 px-3 text-right">${getPct(annualCogs)}</td></tr>
-                    <tr class="bg-stone-950/80 font-bold text-stone-100"><td class="py-2.5 px-3">(=) Marge Brute Commerciale</td><td class="py-2.5 px-3 text-right">${formatMoney((annualCaHT-annualCogs)/12)}</td><td class="py-2.5 px-3 text-right">${formatMoney(annualCaHT-annualCogs)}</td><td class="py-2.5 px-3 text-right">${getPct(annualCaHT-annualCogs)}</td></tr>
-                    <tr class="text-stone-300"><td class="py-2.5 px-3">(-) Charges Fixes d'Exploitation</td><td class="py-2.5 px-3 text-right text-red-400">-${formatMoney(annualFixedCosts/12)}</td><td class="py-2.5 px-3 text-right text-red-400">-${formatMoney(annualFixedCosts)}</td><td class="py-2.5 px-3 text-right">${getPct(annualFixedCosts)}</td></tr>
-                    <tr class="text-stone-300"><td class="py-2.5 px-3">(-) Masse Salariale & Charges Sociales</td><td class="py-2.5 px-3 text-right text-red-400">-${formatMoney(annualPayroll/12)}</td><td class="py-2.5 px-3 text-right text-red-400">-${formatMoney(annualPayroll)}</td><td class="py-2.5 px-3 text-right">${getPct(annualPayroll)}</td></tr>
-                    <tr class="bg-stone-950/80 font-bold text-emerald-400"><td class="py-2.5 px-3">(=) EBITDA (Résultat d'Exploitation)</td><td class="py-2.5 px-3 text-right">${formatMoney(ebitdaAnnuel/12)}</td><td class="py-2.5 px-3 text-right">${formatMoney(ebitdaAnnuel)}</td><td class="py-2.5 px-3 text-right">${getPct(ebitdaAnnuel)}</td></tr>
-                    <tr class="text-stone-400"><td class="py-2.5 px-3">(-) Amortissements du CAPEX</td><td class="py-2.5 px-3 text-right">-${formatMoney(annualAmortization/12)}</td><td class="py-2.5 px-3 text-right">-${formatMoney(annualAmortization)}</td><td class="py-2.5 px-3 text-right">${getPct(annualAmortization)}</td></tr>
-                    <tr class="text-stone-400"><td class="py-2.5 px-3">(-) Impôt sur les Sociétés (IS + CSS)</td><td class="py-2.5 px-3 text-right">-${formatMoney(totalTax/12)}</td><td class="py-2.5 px-3 text-right">-${formatMoney(totalTax)}</td><td class="py-2.5 px-3 text-right">${getPct(totalTax)}</td></tr>
-                    <tr class="bg-amber-500/10 border-t-2 border-amber-500/40 font-extrabold text-amber-400 text-base"><td class="py-3 px-3">(=) BÉNÉFICE NET ANNUEL</td><td class="py-3 px-3 text-right">${formatMoney(netProfit/12)}</td><td class="py-3 px-3 text-right">${formatMoney(netProfit)}</td><td class="py-3 px-3 text-right">${getPct(netProfit)}</td></tr>
-                `;
-            }
-
-            // Cashflow table monthly
-            const cfTbody = document.getElementById('table-cashflow-monthly');
-            if (cfTbody) {
-                cfTbody.innerHTML = monthlyCashflows.map(cf => `
-                    <tr class="hover:bg-stone-800/40">
-                        <td class="py-2 px-2 font-semibold">Mois ${cf.month}</td>
-                        <td class="py-2 px-2 text-right">${formatMoney(cf.caTTC)}</td>
-                        <td class="py-2 px-2 text-right text-red-400">-${formatMoney(cf.cashOut)}</td>
-                        <td class="py-2 px-2 text-right">${cf.month === 1 ? formatMoney(besoinEmprunt) : '0 TND'}</td>
-                        <td class="py-2 px-2 text-right ${cf.net >= 0 ? 'text-emerald-400' : 'text-red-400'}">${formatMoney(cf.net)}</td>
-                        <td class="py-2 px-2 text-right font-bold ${cf.treasury >= 0 ? 'text-amber-400' : 'text-red-500'}">${formatMoney(cf.treasury)}</td>
-                    </tr>
-                `).join('');
-            }
-
-            // Scenarios comparison container
-            const scContainer = document.getElementById('scenarios-comparison-container');
-            if (scContainer) {
-                const pessCa = annualCaHT * 0.8;
-                const optCa = annualCaHT * 1.2;
-                scContainer.innerHTML = `
-                    <div class="bg-stone-950 p-5 rounded-xl border border-stone-800 space-y-2">
-                        <span class="text-xs font-bold uppercase tracking-wider text-red-400">Scénario Pessimiste (-20%)</span>
-                        <p class="text-lg font-bold text-white">${formatMoney(pessCa)} CA</p>
-                        <p class="text-xs text-stone-400">EBITDA estimé : ${formatMoney(ebitdaAnnuel * 0.5)}</p>
-                    </div>
-                    <div class="bg-stone-950 p-5 rounded-xl border border-amber-500/40 space-y-2">
-                        <span class="text-xs font-bold uppercase tracking-wider text-amber-400">Scénario Réaliste (Actuel)</span>
-                        <p class="text-lg font-bold text-white">${formatMoney(annualCaHT)} CA</p>
-                        <p class="text-xs text-stone-400">EBITDA estimé : ${formatMoney(ebitdaAnnuel)}</p>
-                    </div>
-                    <div class="bg-stone-950 p-5 rounded-xl border border-stone-800 space-y-2">
-                        <span class="text-xs font-bold uppercase tracking-wider text-emerald-400">Scénario Optimiste (+20%)</span>
-                        <p class="text-lg font-bold text-white">${formatMoney(optCa)} CA</p>
-                        <p class="text-xs text-stone-400">EBITDA estimé : ${formatMoney(ebitdaAnnuel * 1.5)}</p>
-                    </div>
-                `;
-            }
-
-            const sensEl = document.getElementById('sensitivity-result');
-            if (sensEl) {
-                const reducedCa = annualCaHT * 0.9;
-                const reducedEbitda = reducedCa - annualCogs - annualFixedCosts - annualPayroll;
-                sensEl.innerHTML = `Si vos ventes baissent de 10% (CA de ${formatMoney(reducedCa)}), votre EBITDA passe à <strong class="text-amber-400">${formatMoney(reducedEbitda)}</strong> (soit une baisse de l'excédent de ${((1 - reducedEbitda/ebitdaAnnuel)*100).toFixed(1)}%). Votre seuil de sécurité reste robuste si la trésorerie initiale couvre le point bas.`;
-            }
-
-            window.finDataForCharts = { annualCogs, annualFixedCosts, annualPayroll, monthlyCashflows };
-            if (currentActiveTab === 'tab-resultats') renderCharts();
-        }
-
-        function renderCharts() {
-            const data = window.finDataForCharts;
-            if (!data) return;
-
-            const ctx1 = document.getElementById('chartCharges');
-            if (ctx1) {
-                if (chartChargesInstance) chartChargesInstance.destroy();
-                chartChargesInstance = new Chart(ctx1.getContext('2d'), {
-                    type: 'doughnut',
-                    data: {
-                        labels: ['Coût Matières & Emballages', 'Charges Fixes', 'Masse Salariale & Charges'],
-                        datasets: [{
-                            data: [data.annualCogs, data.annualFixedCosts, data.annualPayroll],
-                            backgroundColor: ['#f59e0b', '#3b82f6', '#10b981'],
-                            borderColor: '#171717',
-                            borderWidth: 2
-                        }]
-                    },
-                    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { color: '#d1d5db', font: { size: 11 } } } } }
-                });
-            }
-
-            const ctx2 = document.getElementById('chartCashflow');
-            if (ctx2) {
-                if (chartCashflowInstance) chartCashflowInstance.destroy();
-                chartCashflowInstance = new Chart(ctx2.getContext('2d'), {
-                    type: 'line',
-                    data: {
-                        labels: data.monthlyCashflows.map(c => 'Mois ' + c.month),
-                        datasets: [{
-                            label: 'Trésorerie Cumulative (TND)',
-                            data: data.monthlyCashflows.map(c => c.treasury),
-                            borderColor: '#f59e0b',
-                            backgroundColor: 'rgba(245, 158, 11, 0.1)',
-                            fill: true,
-                            tension: 0.3
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: { legend: { display: false } },
-                        scales: {
-                            y: { ticks: { color: '#9ca3af' }, grid: { color: '#262626' } },
-                            x: { ticks: { color: '#d1d5db' }, grid: { display: false } }
-                        }
-                    }
-                });
-            }
-        }
-
-        function saveSimulationState() {
-            // Sauvegarde l'ensemble des champs, y compris les champs générés dynamiquement.
-            const controls = Array.from(document.querySelectorAll('input, select, textarea'));
-            const state = {
-                version: 2,
-                savedAt: new Date().toISOString(),
-                fields: controls.map((el) => ({
-                    id: el.id || '',
-                    name: el.name || '',
-                    type: el.type || el.tagName.toLowerCase(),
-                    value: el.value,
-                    checked: typeof el.checked === 'boolean' ? el.checked : undefined
-                })).filter((field) => field.id || field.name)
-            };
-
-            try {
-                localStorage.setItem('cafe_sim_v3', JSON.stringify(state));
-            } catch (error) {
-                alert('La sauvegarde locale a échoué. Vérifiez les autorisations de stockage du navigateur.');
-                return;
-            }
-
-            // Génère une page autonome de résumé consultable, avec les résultats calculés au moment du clic.
-            const escapeHtml = (value) => String(value ?? '').replace(/[&<>"']/g, (ch) => ({
-                '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
-            })[ch]);
-            const kpis = [
-                ['CA Net HT (An 1)', 'kpi-ca-annuel'],
-                ['Moyenne mensuelle', 'kpi-ca-mensuel'],
-                ['EBITDA Exploitation', 'kpi-ebitda'],
-                ['Marge EBITDA', 'kpi-marge-ebitda'],
-                ['Point mort', 'kpi-point-mort'],
-                ['Tickets / jour requis', 'kpi-clients-req'],
-                ['Retour sur investissement (ROI)', 'kpi-roi'],
-                ['Bénéfice net An 1', 'kpi-net-annuel']
-            ].map(([label, id]) => {
-                const el = document.getElementById(id);
-                return `<tr><th>${escapeHtml(label)}</th><td>${escapeHtml(el ? el.innerText : '—')}</td></tr>`;
-            }).join('');
-
-            const fields = state.fields.map((field) => {
-                const el = field.id ? document.getElementById(field.id) : document.querySelector(`[name="${CSS.escape(field.name)}"]`);
-                let label = '';
-                if (el) {
-                    const associated = el.id ? document.querySelector(`label[for="${CSS.escape(el.id)}"]`) : null;
-                    if (associated) label = associated.innerText.trim();
-                }
-                if (!label) label = (field.id || field.name).replace(/^input-/, '').replace(/^num-/, '').replace(/^capex-/, 'CAPEX ').replace(/-/g, ' ');
-                const value = field.type === 'checkbox' || field.type === 'radio' ? (field.checked ? 'Oui' : 'Non') : field.value;
-                return `<tr><th>${escapeHtml(label)}</th><td>${escapeHtml(value)}</td></tr>`;
-            }).join('');
-
-            const report = `<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Résumé de simulation — Café Shop Tunis</title>
-                <style>body{font:15px/1.5 Arial,sans-serif;margin:0;background:#f5f5f4;color:#292524}main{max-width:1000px;margin:32px auto;padding:28px;background:white;border-radius:14px;box-shadow:0 4px 24px #0001}h1{margin-top:0;color:#92400e}h2{margin-top:28px;color:#78350f}p{color:#57534e}.actions{display:flex;gap:10px;margin:20px 0}.actions button{padding:10px 14px;border:0;border-radius:7px;background:#d97706;color:white;font-weight:bold;cursor:pointer}table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:9px 12px;border-bottom:1px solid #e7e5e4;vertical-align:top}th{width:42%;font-weight:600;color:#57534e}tr:nth-child(even){background:#fafaf9}.note{font-size:12px;color:#78716c}@media print{body{background:white}main{margin:0;box-shadow:none;max-width:none}.no-print{display:none}}</style></head><body><main>
-                <h1>Résumé de simulation — Café Shop & Crêperie Tunis</h1><p>Rapport généré le ${escapeHtml(new Date(state.savedAt).toLocaleString('fr-FR'))}. Les résultats reflètent les valeurs présentes au moment de la sauvegarde.</p>
-                <div class="actions no-print"><button onclick="window.print()">Imprimer / Enregistrer en PDF</button><button onclick="window.close()">Fermer le résumé</button></div>
-                <h2>Indicateurs de rentabilité</h2><table><tbody>${kpis}</tbody></table>
-                <h2>Paramètres enregistrés</h2><table><tbody>${fields}</tbody></table>
-                <p class="note">La sauvegarde complète est conservée dans le stockage local de ce navigateur. Ce résumé est une page autonome ouverte depuis le simulateur.</p>
-                </main></body></html>`;
-            const reportWindow = window.open('', '_blank');
-            if (reportWindow) {
-                reportWindow.document.open();
-                reportWindow.document.write(report);
-                reportWindow.document.close();
-            } else {
-                alert('Simulation sauvegardée, mais le navigateur a bloqué la page de résumé. Autorisez les fenêtres pop-up puis cliquez à nouveau sur Sauvegarder.');
-            }
-        }
-
-        function loadSimulationState() {
-            try {
-                const saved = localStorage.getItem('cafe_sim_v3');
-                if (!saved) return;
-                const parsed = JSON.parse(saved);
-
-                // Compatibilité avec l'ancien format qui ne stockait que l'apport et le loyer.
-                if (Array.isArray(parsed.fields)) {
-                    parsed.fields.forEach((field) => {
-                        const el = field.id ? document.getElementById(field.id) : null;
-                        if (!el) return;
-                        if (field.type === 'checkbox' || field.type === 'radio') el.checked = Boolean(field.checked);
-                        else if (field.value !== undefined) el.value = field.value;
-                    });
-                } else {
-                    if (parsed.apport !== undefined) document.getElementById('input-apport').value = parsed.apport;
-                    if (parsed.loyer !== undefined) document.getElementById('input-loyer').value = parsed.loyer;
-                }
-            } catch (error) {
-                console.warn('Impossible de restaurer la simulation sauvegardée :', error);
-            }
-        }
-
-        function resetAllDefaults() {
-            localStorage.removeItem('cafe_sim_v3');
-            location.reload();
-        }
-
-        window.addEventListener('DOMContentLoaded', () => {
-            initProductInputs();
-            loadSimulationState();
-            recalculateAll();
-        });
-    </script>
-</body>
-</html>
+<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>L'Adorée – Simulateur de rentabilité</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+:root{--bg:#14110f;--c:#1f1a17;--b:#332c27;--t:#f4efe9;--m:#a89f95;--a:#e8a33d;--g:#5fd1a0;--r:#f27c6e}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--t);font:14px/1.45 Georgia,serif}
+header{position:sticky;top:0;z-index:9;background:var(--c);border-bottom:1px solid var(--b);padding:10px 16px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+h1{font-size:17px;margin:0;color:var(--a);flex:1;min-width:200px}h2{font-size:15px;color:var(--a);margin:18px 0 8px}
+button,select{background:var(--b);color:var(--t);border:1px solid #4a4037;border-radius:8px;padding:5px 10px;cursor:pointer;font:inherit}
+button.p,button.on{background:var(--a);color:#1a1205;font-weight:700;border:0}
+nav{display:flex;gap:6px;padding:10px 16px;overflow:auto}main{max-width:1100px;margin:auto;padding:0 16px 40px}
+.pane{display:none}.pane.on{display:block}.g{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px}
+.card{background:var(--c);border:1px solid var(--b);border-radius:10px;padding:12px;margin-bottom:10px}
+.k b{display:block;font-size:20px;margin:2px 0}.k small,.note,label.f{color:var(--m)}.note{font-size:12px}
+.k b.txt-ttc{color:var(--a);font-weight:bold}.k b.txt-ht{color:var(--t);font-weight:normal}td.ttc,th.ttc{color:var(--a);font-weight:700;background:#e8a33d1a}summary b.ttc{background:#e8a33d1a;border-radius:6px;padding:1px 6px}.tt{color:var(--a);font-weight:700}.sm{font-size:11px;color:var(--m);font-weight:400}select.cs{width:100%;min-width:120px}
+.txt-danger{color:var(--r)!important;font-weight:bold}
+summary{cursor:pointer;display:flex;justify-content:space-between;gap:8px;font-weight:700}summary b{color:var(--a);white-space:nowrap}
+table{width:100%;border-collapse:collapse}td,th{padding:4px;border-bottom:1px solid var(--b);text-align:right}td:first-child,th:first-child{text-align:left}
+input{background:var(--bg);color:var(--a);border:1px solid var(--b);border-radius:6px;padding:3px 5px;width:100%;min-width:60px}input[type=checkbox]{width:auto;min-width:0}
+label.f{display:flex;justify-content:space-between;gap:8px;align-items:center;font-size:12px;margin:4px 0}label.f input{width:90px}
+.v{padding:10px;border-radius:8px;font-weight:700;margin-bottom:10px}.ok{background:#12352a;color:var(--g)}.mid{background:#3b2a10;color:var(--a)}.ko{background:#3d1a16;color:var(--r)}
+canvas{max-height:260px}@media print{body{background:#fff;color:#000}header,nav{display:none}.pane{display:none!important}#db{display:block!important}.card{background:#fff}}
+</style></head><body>
+<header><h1>L'Adorée · Simulateur de rentabilité</h1><span id="sb"></span><span id="hv"></span><button class="p" onclick="save()">Valider et sauvegarder</button><button onclick="rst()">Réinitialiser</button><button onclick="print()">Imprimer</button></header>
+<nav id="nav"></nav>
+<main>
+<!-- 1. TABLEAU DE BORD -->
+<section class="pane on" id="db">
+  <div id="vd"></div>
+  <div id="lev"></div>
+  <div class="g" id="kp"></div>
+  <div class="card"><h3>Impact du financement (scénario actif)</h3><div style="overflow:auto" id="tm"></div></div>
+  <div class="card"><h3>Comparaison des 3 scénarios (financement actuel)</h3><div style="overflow:auto" id="t3"></div></div>
+  <div class="card"><h3>TVA (scénario actif, sans remboursement : report sur les mois suivants)</h3><div style="overflow:auto" id="tv"></div></div>
+  <p class="note">Estimations indicatives : TVA, IS, charges sociales à confirmer avec votre expert-comptable.</p>
+</section>
+
+<!-- NOUVEL ONGLET : TRÉSORERIE DÉTAILLÉE -->
+<section class="pane" id="tr">
+  <div class="card"><h3>Trésorerie mensuelle détaillée</h3><div style="overflow:auto" id="cashTable"></div><p class="note">L’investissement du café et son financement sont comptabilisés au mois d’ouverture du café (paramètre « Mois complets avant lancement du café »). L’impôt est prélevé en fin de chaque année.</p></div>
+  <div class="g">
+    <div class="card"><h3>Évolution de la Trésorerie cumulée</h3><canvas id="c1"></canvas></div>
+    <div class="card"><h3>CA TTC et EBITDA mensuels</h3><canvas id="c2"></canvas></div>
+  </div>
+</section>
+
+<!-- 2. VENTES -->
+<section class="pane" id="ve">
+  <div id="veContent"></div>
+  <div class="g" style="margin-top:15px;">
+    <div class="card"><h3>Répartition du CA TTC par Catégorie (Régime de croisière)</h3><canvas id="chartCatPie"></canvas></div>
+    <div class="card"><h3>Comparatif CA TTC / mois par Catégorie</h3><canvas id="chartCatBar"></canvas></div>
+  </div>
+</section>
+
+<!-- EXPLOITATION & SCÉNARIOS -->
+<section class="pane" id="ex"></section>
+<section class="pane" id="sc"></section>
+
+<!-- 3. NOUVEL ONGLET : SYNTHÈSE GRAPHIQUE -->
+<section class="pane" id="sg">
+  <div class="card"><h2 style="margin-top:0;">Synthèse Visuelle du Projet (Toutes valeurs en TTC)</h2><p class="note">Aperçu visuel global de la rentabilité, de la trésorerie et de la structure de coûts en TTC.</p></div>
+  <div class="g">
+    <div class="card"><h3>Chiffre d'Affaires TTC Annuel (sur 3 ans)</h3><canvas id="sgChartCA"></canvas></div>
+    <div class="card"><h3>Trajectoire de Trésorerie TTC (36 mois)</h3><canvas id="sgChartCash"></canvas></div>
+  </div>
+    <div class="g">
+    <div class="card"><h3>Structure des Investissements TTC (Phase 1 vs Phase 2)</h3><canvas id="sgChartInv"></canvas></div>
+    <div class="card"><h3>Répartition du CA TTC de l'année 3 (la somme des parts = CA TTC)</h3><canvas id="sgChartCost"></canvas></div>
+  </div>
+</section>
+
+<!-- ESTIMATIONS -->
+<section class="pane" id="es">
+  <div class="card"><h3>Estimations sauvegardées</h3><div style="overflow:auto" id="el"></div><p><button onclick="expJ()">Exporter (JSON)</button> <button onclick="imp.click()">Importer</button> <button onclick="expC()">Plan mensuel (CSV)</button><input type="file" id="imp" accept=".json" hidden></p></div>
+</section>
+</main>
+<script>
+const MN=['Janv.','Févr.','Mars','Avr.','Mai','Juin','Juil.','Août','Sept.','Oct.','Nov.','Déc.'],SCN={pru:'Prudent',rea:'Réaliste',amb:'Ambitieux'};
+const G=[['p1m',"Matériel d'exploitation",1,1],['p1a','Aménagement du labo (travaux)',1,0],['p1g','Agencement du labo',1,0],['p1v','Aménagement du point de vente',1,0],['p1w','Agencement du point de vente',1,0],['p1d','Démarrage (caution, juridique, stock, marketing, trésorerie)',1,0],['p2m','Matériel café',2,1],['p2a','Aménagement du café (salle et terrasse)',2,0],['p2g','Agencement intérieur et terrasse',2,0],['p2d','Démarrage du café',2,0]];
+const X0=[['p1m','Four rotatif / à convection',38000,'m'],['p1m','Laminoir à pâte',18000,'m'],['p1m','Chambre de fermentation contrôlée',14000,'m'],['p1m','Chambres froides et cellule de refroidissement',28000,'m'],['p1m','Batteur et petit appareillage pâtissier',16000,'m'],['p1m','Vitrines réfrigérées et de présentation',25000,'m'],['p1m','Plonge et lave-vaisselle pro',9000,'m'],['p1m','Caisse / POS et TPE',5000,'m'],['p1a','Plomberie, électricité, évacuation',28000,'t'],['p1a','Extraction et ventilation',14000,'t'],['p1a','Sols, murs, plafond (norme alimentaire)',18000,'t'],['p1g','Plans de travail inox, étagères, racks',15000,'m'],['p1v','Façade, vitrine, sols, électricité',25000,'t'],['p1w','Comptoir, mobilier, décoration, enseigne',28000,'m'],['p1d','Caution du loyer (3 mois)',13500,'n'],['p1d','Frais juridiques et licences',6000,'m'],['p1d','Stock initial',8000,'n'],['p1d','Marketing de lancement',8000,'m'],['p1d','Trésorerie de sécurité (fonds de roulement)',35000,'n'],['p2m','Machine espresso et moulins',22000,'m'],['p2m','Matériel de service (thé, boissons froides, lave-verres)',10000,'m'],['p2a','Aménagement de la salle (travaux, clim)',30000,'t'],['p2a','Aménagement de la terrasse',18000,'t'],['p2g','Mobilier de salle (50 places)',25000,'m'],['p2g','Décoration intérieure',15000,'m'],['p2g','Mobilier de terrasse',12000,'m'],['p2d','Marketing et recrutement du café',7000,'m']];
+const C0=[['cro','Croissanterie',1,0],['vie','Viennoiserie',1,0],['mil','Millefeuilles et pâtisserie sèche',1,0],['pat','Petite pâtisserie fine',1,0],['sal','Salé et snacking',1,0],['cho','Chocolat, macarons et confiserie',1,0],['boi','Boissons à emporter',1,0],['pro','Ventes aux professionnels (prix de gros)',1,1],['caf','Café — boissons chaudes',2,0],['sig','Café — boissons fraîches et signature',2,0],['psa','Café — pâtisserie et desserts en salle',2,0],['brn','Café — brunch et plats légers',2,0],['cre','Café — crêpes et gaufres',2,0]];
+const A0=[['cro','Croissant nature',70,2.8,.7],['cro','Croissants spécialités (pistache, amande…)',45,5.5,1.5],['cro','Croissants salés / fourrés',20,5,1.5],['vie','Pain au chocolat',55,3.2,.85],['vie','Feuilletés et chaussons',30,3.5,1],['vie','Brioches et pains au lait',25,3,.8],['vie','Cookies, muffins et cakes',25,3.5,.95],['mil','Millefeuille individuel',28,7.5,1.9],['mil','Éclairs et choux',22,5,1.3],['mil','Gâteaux secs et sablés',45,4,1.1],['mil','Boîtes cadeaux / assortiments',6,35,10],['pat','Entremets et tartelettes individuels',20,9,2.6],['pat','Tartes aux fruits entières',4,28,8],['pat','Gâteaux de fête (sur commande)',2,70,22],['sal','Quiches et tourtes',15,6.5,2],['sal','Sandwichs frais',20,7,2.4],['sal','Mini-feuilletés et cakes salés',10,3,.9],['cho','Macarons',25,3.5,1],['cho','Chocolats pralinés (boîtes)',6,25,8],['cho','Tablettes et confiserie',12,8,2.5],['cho','Pâtes à tartiner et confitures maison',5,14,4.5],['boi','Café, thé et boissons chaudes',30,3.5,.8],['boi','Jus et boissons fraîches',20,4.5,1.4],['boi','Chocolat chaud et boissons glacées',10,5,1.3],['pro','Viennoiserie aux hôtels et cafés',100,2,.7],['pro','Pâtisserie fine aux restaurants',15,6,2.2],['pro','Traiteurs et événements',10,12,4.2],['pro','Entreprises (petits-déjeuners, coffrets cadeaux)',4,45,14],['caf','Espresso et café filtre',30,4,.7],['caf','Cappuccino, latte et boissons lactées',25,6,1.3],['caf','Thé et infusions',15,5,.8],['sig','Jus frais pressés',12,8,2.4],['sig','Limonades et boissons maison',13,6,1.6],['sig','Smoothies et milkshakes',6,10,3],['psa','Pâtisserie en salle',18,9,2.7],['psa','Tartes et cheesecakes',8,11,3.4],['psa','Glaces et coupes glacées',6,10,2.8],['brn','Petit-déjeuner complet',8,16,5.2],['brn','Brunch du week-end',7,24,7.5],['brn','Salades et plats légers',6,18,6],['cre','Crêpes sucrées',12,9,2.4],['cre','Galettes / crêpes salées',6,13,4],['cre','Gaufres',8,11,3]];
+const D={act:'rea',par:{tvc:19,apport:75000,emp:0,taux:12.5,dur:60,lp:80,ld:48,lt:12,emp2:0,taux2:12.5,dur2:48,lp2:80,jours:30,tva:19,carte:1.6,livr:8,comm:25,emb:2.5,pertes:4,inf:6,hp:3,ch:19.5,is:20,css:3,mt:.2,dm:5,dt:9,rs:35,mc:12,rc:6,rcs:40,ram:2,cram:110,start:1,apc:2.5,places:50,rot:7,s0:90,s1:95,s2:100,s3:100,s4:100,s5:105,s6:105,s7:105,s8:100,s9:100,s10:95,s11:110},
+sc:{pru:{vol:.7,vc:.7,rn:12,cm:1.08,dep:1.15},rea:{vol:1,vc:1,rn:8,cm:1,dep:1.05},amb:{vol:1.2,vc:1.2,rn:5,cm:.97,dep:1}},
+cx:X0.map(x=>({g:x[0],n:x[1],v:x[2],t:x[3],e:G.find(y=>y[0]==x[0])[3],tv:/caution|Trésorerie/i.test(x[1])?0:19,sc:0})),cats:C0.map(x=>({id:x[0],n:x[1],ph:x[2],b:x[3]})),ca:A0.map(x=>({c:x[0],n:x[1],q:x[2],p:x[3],k:x[4],tv:19})),
+fx:[['Loyer (local entier)',1,4500],['STEG et gaz',1,2200],['SONEDE et télécom',1,400],['Marketing',1,700],['Comptable',1,500],['Entretien et nettoyage',1,500],['Assurances',1,450],['Taxe locale et patente',1,200],['Maintenance matériel',1,600],['Frais divers',1,400],['Énergie et entretien de la salle',2,900]].map(x=>({n:x[0],ph:x[1],v:x[2],tv:/Assurances|Taxe/.test(x[0])?0:19})),
+rh:[['Gérant',1,1,2500],['Chef viennoiseur',1,1,2800],['Pâtissier',1,1,2200],['Aides de labo',1,2,1000],['Vendeurs / vendeuses',1,5,850],['Barista chef (café)',2,1,1400],['Serveurs (café)',2,6,850]].map(x=>({n:x[0],ph:x[1],e:x[2],s:x[3]}))};
+const PAL=['#e8a33d','#5fd1a0','#f27c6e','#8b5cf6','#ec4899','#38bdf8','#a3e635','#fb923c','#14b8a6','#c084fc','#f472b6','#94a3b8','#facc15','#4ade80'];let S=JSON.parse(JSON.stringify(D)),E=[],C1,C2,ChartCatPie,ChartCatBar,SgChartCA,SgChartCash,SgChartInv,SgChartCost;
+const LS={g:k=>{try{return JSON.parse(localStorage.getItem(k))}catch(e){return null}},s:(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}},$=i=>document.getElementById(i),fm=n=>Math.round(n).toLocaleString('fr-FR')+' TND',pc=n=>(n*100).toFixed(1)+' %';
+
+function M(s,key,ov){const P={...s.par,...ov},X=s.sc[key],g=k=>P[k],c=[0,0],cH=[0,0],gc=[0,0],pe=1+g('pertes')/100,tc=g('tvc')/100;let u=0;
+s.ca.forEach(a=>{const t=s.cats.find(x=>x.id==a.c)||{ph:1},h=t.ph-1,q=a.q*(h?X.vc:X.vol);c[h]+=q*a.p;cH[h]+=q*a.p/(1+(a.tv??19)/100);gc[h]+=q*a.k*X.cm*pe;if(!t.b&&h)u+=q});
+const k=[0,0],z=[0,0],am=[0,0],vI=[0,0],vatGross=[0,0],lp=g('lp')/100,lp2=g('lp2')/100;
+
+// Gestion du credit fournisseur sur investissement Phase 1
+const SUP=[[0,0,0],[0,0,0]];let lzT=0;
+
+s.cx.forEach(x=>{
+  const h=G.find(y=>y[0]==x.g)[2]-1,v=x.v*(x.t=='n'?1:X.dep),sh=x.e?1-(h?lp2:lp):1;
+  k[h]+=v;if(x.e)z[h]+=v;
+  const vatLine = v*(x.tv??19)/100;
+  vatGross[h]+=vatLine;
+  const vI_line = v*sh*(x.tv??19)/100;
+  vI[h]+=vI_line;
+  am[h]+=x.t=='n'?0:v*sh/((x.t=='t'?g('dt'):g('dm'))*12);
+
+  // Échéancier crédit fournisseur (phase 1 et phase 2) : [M0, M+1, M+2]
+  const nco=(v*sh)+vI_line,sx=x.sc==2?[.5,.5,0]:x.sc==3?[.4,.3,.3]:[1,0,0];
+  SUP[h][0]+=nco*sx[0];SUP[h][1]+=nco*sx[1];SUP[h][2]+=nco*sx[2];
+  if(x.e)lzT+=v*(h?lp2:lp)*(1+(x.tv??19)/100);
+});
+
+const nl=g('ld'),rl=g('lt')/1200,lm=(V,rate=rl,months=nl)=>V?(rate?V*rate/(1-(1+rate)**-months):V/months):0,mc=Math.max(1,Math.round(g('mc'))),l=[lm(z[0]*lp),lm(z[1]*lp2)],I=[k[0]-z[0]*lp,k[1]-z[1]*lp2],L2=Math.max(0,g('emp2')),r2m=g('taux2')/1200,n2=Math.max(1,g('dur2')),pmt2=lm(L2,r2m,n2);
+const L=g('emp'),r=g('taux')/1200,n=g('dur'),pmt=L?(r?L*r/(1-(1+r)**-n):L/n):0,ch=1+g('ch')/100,pay=[0,0],fx=[0,0],fv=[0,0];s.rh.forEach(x=>pay[x.ph-1]+=x.e*x.s);s.fx.forEach(x=>{fx[x.ph-1]+=x.v;fv[x.ph-1]+=x.v*(x.tv??19)/100});
+vI[1]=s.cx.reduce((a,x)=>{const h=G.find(y=>y[0]==x.g)[2]-1;if(h!==1)return a;const share=x.e?1-lp2:1;return a+x.v*(x.t=='n'?1:X.dep)*share*(x.tv??19)/100},0);
+const reserveLine=s.cx.filter(x=>/trésorerie de sécurité/i.test(x.n)).reduce((a,x)=>a+x.v,0);
+
+// Demarrage M0 tenant compte du credit fournisseur
+const invM0_P1=SUP[0][0],inv2M0=SUP[1][0];let lossCF=0,bal=L,bal2=L2,cash=g('apport')+L-invM0_P1+reserveLine,cum=-(invM0_P1-reserveLine),cr=vI[0],be=null,pb=null,tm=cash,open0=cash;
+let cash12=0;const R=[],Y=[0,1,2].map(()=>({ht:0,ttc:0,cg:0,vr:0,fx:0,sl:0,eb:0,ls:0,dp:0,it:0,ebt:0,tx:0,cs:0,net:0,vc:0,vd:0,vp:0,cr:0,vo:0,cgT:0,chT:0,lsT:0,dsv:0})),rn=Math.max(1,X.rn);Y[0].vd=vI[0];
+
+for(let t=0;t<36;t++){
+  const cashStart=cash;let investmentOut=0,financingIn=0;const cal=(g('start')-1+t)%12,y=t/12|0,co=(cal==g('ram')-1?g('cram'):g('s'+cal))/100,iC=(1+g('inf')/100)**y,iP=(1+g('hp')/100)**y,d=g('jours')*co,on=t>=mc,r1=t<rn?g('rs')/100+(1-g('rs')/100)*t/rn:1,r2=on?g('rcs')/100+(1-g('rcs')/100)*Math.min(1,(t-mc)/Math.max(1,g('rc'))):0;
+  if(t==mc){investmentOut=SUP[1][0];financingIn=L2;cash+=financingIn-investmentOut;cum-=investmentOut;cr+=vI[1];Y[y].vd+=vI[1]}
+  
+  // Paiement des traites du credit fournisseur au M1 et M2
+  let supplierPay=(t<2?SUP[0][t+1]:0)+(t>mc&&t<=mc+2?SUP[1][t-mc]:0);
+
+  const ttc=(c[0]*r1+c[1]*r2)*d*iP,ht1=cH[0]*r1*d*iP,ht2=cH[1]*r2*d*iP,ht=ht1+ht2,cg=(gc[0]*r1+gc[1]*r2)*d*iC,vv=ht*(g('livr')*g('comm')/1e4+g('emb')/100),vr=ttc*g('carte')/100+vv,fi=(fx[0]+(on?fx[1]:0))*iC,sl=(pay[0]+(on?pay[1]:0))*ch*iC,eb=ht-cg-vr-fi-sl,ls=(t<nl?l[0]:0)+(on&&t-mc<nl?l[1]:0),dp=am[0]+(on?am[1]:0);
+  const co2=ttc-ht,tl=g('tva')/100,vF=(fv[0]+(on?fv[1]:0))*iC,de=(cg+vv)*tc+ls*tl+vF,nv=co2-de-cr,vp=nv>0?nv:0;cr=nv>0?0:-nv;
+  const it=t<n?bal*r:0,it2=on&&t-mc<n2?bal2*r2m:0,pr=t<n&&L?pmt-it:0,pr2=on&&t-mc<n2&&L2?pmt2-it2:0;bal-=pr;bal2-=pr2;const ebt=eb-ls-dp-it-it2,Z=Y[y];Z.ht+=ht;Z.ttc+=ttc;Z.cg+=cg;Z.vr+=vr;Z.fx+=fi;Z.sl+=sl;Z.eb+=eb;Z.ls+=ls;Z.dp+=dp;Z.it+=it+it2;Z.ebt+=ebt;Z.vc+=co2;Z.vd+=de;Z.vp+=vp;Z.vo+=de;Z.cgT+=cg*(1+tc);Z.chT+=fi+vF+ttc*g('carte')/100+vv*(1+tc);Z.lsT+=ls*(1+tl);Z.dsv+=it+it2+pr+pr2;
+  if(be===null&&ebt>0)be=t+1;
+  
+  cash+=eb-ls-it-it2-pr-pr2+co2-de-vp-supplierPay;
+  cum+=eb-ls-it-it2+co2-de-vp-supplierPay;
+  R.push({t:t+1,ht1,ht2,ht,ttc,eb,cash,cashStart,investmentOut,financingIn,lease:ls,interest:it+it2,principal:pr+pr2,tvaPaid:vp,supplierPay,expenses:fi+sl+cg+vr});
+  
+  if(t%12==11){Z.cr=cr;const bt=Math.max(0,Z.ebt-lossCF);lossCF=Math.max(0,lossCF-Math.max(0,Z.ebt))+Math.max(0,-Z.ebt);Z.tx=Math.max(bt*g('is')/100,Math.max(g('mt')/100*Z.ttc,500));Z.cs=bt*g('css')/100;Z.net=Z.ebt-Z.tx-Z.cs;cash-=Z.tx+Z.cs;cum-=Z.tx+Z.cs;R[t].cash=cash;R[t].tax=Z.tx+Z.cs}
+  if(t==mc-1)cash12=cash;if(pb===null&&cum>=0)pb=t+1;tm=Math.min(tm,cash)
+}
+const Q=Y[2],den=Q.ls+Q.dsv,mv=1-(Q.cg+Q.vr)/Q.ht,m={R,open0,Y,k,z,I,l,pmt,pmt2,tm,be,pb,bes:Math.max(0,reserveLine-tm),reserve:reserveLine,phase2Lease:z[1]*lp2,phase2Loan:L2,phase2VAT:vI[1],phase1VAT:vI[0],vatGross,investmentTTC:[k[0]+vatGross[0],k[1]+vatGross[1]],cash12,phase2TreasuryNeed:Math.max(0,inv2M0-L2+reserveLine-cash12),kt:k[0]+k[1],vi:vI[0]+vI[1],dscr:den>0?Q.eb/den:null,cl:u/g('apc'),cap:g('places')*g('rot'),pm:(Q.fx+Q.sl+Q.ls+Q.dp+Q.it)/12/mv,lz:(z[0]*lp)+(z[1]*lp2),lzT,pmT:(Q.fx+Q.sl+Q.ls+Q.dp+Q.it)/12/mv*Q.ttc/Q.ht,need0:invM0_P1};
+m.v=m.bes<=0&&(m.dscr==null||m.dscr>=1.3)?'ok':m.bes<=.15*m.kt&&(m.dscr==null||m.dscr>=1)?'mid':'ko';return m}
+
+const VL={ok:'Faisable',mid:'À risque',ko:'Non faisable en l\'état'},V_=m=>`<span class="${m.v}" style="padding:2px 8px;border-radius:6px">${VL[m.v]}</span>`;
+const inp=(a,i,f,v,t='number')=>`<input type="${t}" ${t=='number'?'step="any"':''} data-a="${a}" data-i="${i}" data-f="${f}" value="${String(v).replace(/"/g,'&quot;')}">`,par=(k,l,u='')=>`<label class="f">${l}<span><input type="number" step="any" data-p="${k}" value="${S.par[k]}"> ${u}</span></label>`,del=(a,i)=>`<button onclick="rm('${a}',${i})">×</button>`;
+const phs=(a,i,v)=>`<select data-a="${a}" data-i="${i}" data-f="ph">${[1,2].map(p=>`<option value="${p}" ${v==p?'selected':''}>${p}</option>`).join('')}</select>`;
+
+function rVe(){
+  let h='<div class="card k"><small>Chiffre d\'affaires TTC, régime de croisière, scénario actif</small><b data-tg="tca" class="txt-ttc"></b><small>HT : <span data-tg="tcaHT"></span></small></div><div class="note">Prix saisis TTC ; les volumes sont des ventes par jour à 100 % de la montée en charge. Le sélecteur « Catégorie » permet de déplacer un produit.</div>';
+  const co=id=>S.cats.map(c=>`<option value="${c.id}" ${c.id==id?'selected':''}>${c.n}</option>`).join('');
+  S.cats.forEach((t,j)=>{
+    h+=`<details class="card"><summary><span>${inp('cats',j,'n',t.n,'text')} <small>Phase ${t.ph}${t.b?' · pros':''}</small></span><b class="ttc" data-tg="c:${t.id}"></b></summary><p class="note">Phase ${phs('cats',j,t.ph)} · <label><input type="checkbox" data-a="cats" data-i="${j}" data-f="b" ${t.b?'checked':''}> Vente aux professionnels</label></p><div style="overflow:auto"><table><tr><th>Produit</th><th>Catégorie</th><th>Ventes/jour</th><th class="ttc">Prix TTC</th><th>Prix HT</th><th>Coût HT</th><th>Coût TTC</th><th>TVA %</th><th class="ttc">CA mois TTC</th><th>CA mois HT</th><th></th></tr>`+S.ca.map((a,i)=>a.c!=t.id?'':`<tr><td>${inp('ca',i,'n',a.n,'text')}</td><td><select class="cs" data-a="ca" data-i="${i}" data-f="c">${co(a.c)}</select></td><td>${inp('ca',i,'q',a.q)}</td><td class="ttc">${inp('ca',i,'p',r2(a.p))}</td><td>${inp('ca',i,'pht',r2(a.p/(1+(a.tv??19)/100)))}</td><td>${inp('ca',i,'k',r2(a.k))}</td><td>${inp('ca',i,'kttc',r2(a.k*(1+S.par.tvc/100)))}</td><td>${inp('ca',i,'tv',a.tv??19)}</td><td class="ttc" data-tg="pt:${i}"></td><td data-tg="p:${i}"></td><td>${del('ca',i)}</td></tr>`).join('')+`</table></div><button onclick="add('ca','${t.id}')">+ Ajouter un produit</button> <button onclick="rmc(${j})">Supprimer la catégorie</button></details>`
+  });
+  $('veContent').innerHTML=h+'<button class="p" onclick="addc()">+ Ajouter une catégorie</button>';
+}
+
+function rEx(){let h='<div class="g"><div class="card k"><small>Phase 1 · Investissement de départ TTC</small><b data-tg="tinvTTC1" class="txt-ttc"></b><small>HT : <span data-tg="tinv1"></span> · TVA : <span data-tg="tinvTVA1"></span></small></div><div class="card k"><small>Phase 2 · Extension café TTC</small><b data-tg="tinvTTC2" class="txt-ttc"></b><small>HT : <span data-tg="tinv2ht"></span> · TVA : <span data-tg="tinvTVA2"></span></small></div></div><div class="note">Les montants de la phase 2 sont issus exclusivement des lignes « Phase 2 · Café salon de thé » ci-dessous. Montants saisis hors dépassement du scénario actif.</div>';
+[1,2].forEach(ph=>{h+=`<h2>Phase ${ph} · ${ph==1?'Viennoiserie':'Café salon de thé'}</h2>`;G.filter(g=>g[2]==ph).forEach(g=>{h+=`<details class="card"><summary><span>${g[1]}</span><b class="ttc" data-tg="g:${g[0]}"></b></summary><table><tr><th>Ligne (HT / TTC)</th><th>HT</th><th class="ttc">TTC</th><th>TVA %</th><th>Amortissement</th><th>Paiement / Crédit Fournisseur</th><th>Leasing</th><th></th></tr>`+S.cx.map((x,i)=>x.g!=g[0]?'':`<tr><td>${inp('cx',i,'n',x.n,'text')}</td><td>${inp('cx',i,'v',r2(x.v))}</td><td class="ttc">${inp('cx',i,'ttc',r2(x.v*(1+(x.tv??19)/100)))}</td><td>${inp('cx',i,'tv',x.tv??19)}</td><td><select data-a="cx" data-i="${i}" data-f="t">${[['m','Matériel'],['t','Travaux'],['n','Non amorti']].map(o=>`<option value="${o[0]}" ${x.t==o[0]?'selected':''}>${o[1]}</option>`).join('')}</select></td><td><select data-a="cx" data-i="${i}" data-f="sc">${[[0,'Comptable/Comptant'],[2,'2 fois (50% M0 / 50% M1)'],[3,'3 fois (40% M0 / 30% M1 / 30% M2)']].map(o=>`<option value="${o[0]}" ${(x.sc??0)==o[0]?'selected':''}>${o[1]}</option>`).join('')}</select></td><td><label><input type="checkbox" data-a="cx" data-i="${i}" data-f="e" ${x.e?'checked':''}> leasing</label></td><td>${del('cx',i)}</td></tr>`).join('')+`</table><button onclick="add('cx','${g[0]}')">+ Ajouter une ligne</button></details>`})});
+h+='<h2>Charges d\'exploitation — séparées par phase</h2>';[1,2].forEach(ph=>{h+=`<details class="card"><summary><span>Phase ${ph} · ${ph==1?'Boulangerie-pâtisserie':'Café salon de thé'} — charges fixes</span><b class="ttc" data-tg="fx:${ph}"></b></summary><table><tr><th>Charge</th><th>HT</th><th class="ttc">TTC</th><th>TVA %</th><th>Phase</th><th></th></tr>`+S.fx.map((x,i)=>x.ph!=ph?'':`<tr><td>${inp('fx',i,'n',x.n,'text')}</td><td>${inp('fx',i,'v',r2(x.v))}</td><td class="ttc">${inp('fx',i,'ttc',r2(x.v*(1+(x.tv??19)/100)))}</td><td>${inp('fx',i,'tv',x.tv??19)}</td><td>${phs('fx',i,x.ph)}</td><td>${del('fx',i)}</td></tr>`).join('')+`</table><button onclick="addPhase('fx',${ph})">+ Ajouter une charge à la phase ${ph}</button></details>`});
+h+='<h2>Personnel — séparé par phase</h2>';[1,2].forEach(ph=>{h+=`<details class="card"><summary><span>Phase ${ph} · ${ph==1?'Boulangerie-pâtisserie':'Café salon de thé'} — personnel</span><b class="ttc" data-tg="rh:${ph}"></b></summary><table><tr><th>Poste</th><th>Effectif</th><th>Brut</th><th>Phase</th><th></th></tr>`+S.rh.map((x,i)=>x.ph!=ph?'':`<tr><td>${inp('rh',i,'n',x.n,'text')}</td><td>${inp('rh',i,'e',x.e)}</td><td>${inp('rh',i,'s',x.s)}</td><td>${phs('rh',i,x.ph)}</td><td>${del('rh',i)}</td></tr>`).join('')+`</table><button onclick="addPhase('rh',${ph})">+ Ajouter un poste à la phase ${ph}</button></details>`});
+h+='<details class="card"><summary><span>Paramètres d\'exploitation, fiscalité, saisonnalité</span></summary><div class="g">'+[['jours',"Jours d'ouverture/mois",'j'],['tva','TVA par défaut (nouvelles lignes)','%'],['tvc','TVA sur achats matière et charges variables','%'],['carte','Frais de carte','%'],['livr','Part livraison du CA','%'],['comm','Commission livraison','%'],['emb','Emballages (CA HT)','%'],['pertes','Pertes matière','%'],['inf','Inflation des coûts/an','%'],['hp','Hausse des prix/an','%'],['ch','Charges patronales','%'],['is','Taux IS (SARL)','%'],['css','CSS','%'],['mt',"Minimum d'impôt (% CA TTC)",'%'],['dm','Amortissement matériel','ans'],['dt','Amortissement travaux (bail)','ans'],['rs','CA au démarrage','%'],['mc','Mois complets avant lancement du café','mois'],['rc','Montée en charge café','mois'],['rcs','Café au démarrage','%'],['ram','Mois de Ramadan (1-12)',''],['cram','Coefficient Ramadan','%'],['start',"Mois d'ouverture (1=janv.)",''],['apc','Articles par client',''],['places','Places assises',''],['rot','Rotations/jour','']].map(x=>par(x[0],x[1],x[2])).join('')+MN.map((m,i)=>par('s'+i,'Coef. '+m,'%')).join('')+'</div></details>';$('ex').innerHTML=h}
+
+function rFi(){const ri=S.cx.findIndex(x=>/trésorerie de sécurité/i.test(x.n));$('lev').innerHTML='<div class="card"><h3>Leviers de financement</h3><div class="g"><div><b>Phase 1 · démarrage</b>'+par('apport','Apport propre','TND')+par('emp','Crédit bancaire (0 = aucun)','TND')+par('taux','Taux du crédit','%')+par('dur','Durée du crédit','mois')+par('lp','Part du matériel en leasing','%')+par('ld','Durée du leasing','mois')+par('lt','Taux du leasing','%')+'</div><div><b>Phase 2 · café (à l\'ouverture)</b>'+par('lp2','Part du matériel en leasing','%')+par('emp2','Crédit bancaire (0 = aucun)','TND')+par('taux2','Taux du crédit','%')+par('dur2','Durée du crédit','mois')+(ri>=0?`<label class="f">Réserve de trésorerie à préserver<span>${inp('cx',ri,'v',r2(S.cx[ri].v))} TND</span></label>`:'')+'<p class="note">Leasing du café : durée et taux identiques à la phase 1.</p></div></div><p class="note">Le leasing ne finance que les lignes cochées « leasing » (onglet Exploitation). La réserve est la ligne « Trésorerie de sécurité » de l\'investissement.</p><div id="fs"></div></div>'}
+function rSc(){$('sc').innerHTML='<div class="card"><h3>Définition des trois scénarios</h3><table><tr><th></th>'+Object.keys(SCN).map(k=>`<th>${SCN[k]}</th>`).join('')+'</tr>'+[['vol','Volume des ventes (phase 1), ×'],['vc','Volume du café, ×'],['rn','Montée en charge (mois)'],['cm','Coût matière, ×'],['dep',"Dépassement de l'investissement, ×"]].map(r=>`<tr><td>${r[1]}</td>${Object.keys(SCN).map(k=>`<td><input type="number" step="any" data-s="${k}.${r[0]}" value="${S.sc[k][r[0]]}"></td>`).join('')}</tr>`).join('')+'</table></div>'}
+
+function upd(){
+  LS.s('ladoree6.cur',S);const X=S.sc[S.act],T={};let tcaHT=0,tcaTTC=0;
+  let catCAData=[];
+  S.ca.forEach((a,i)=>{
+    const t=S.cats.find(x=>x.id==a.c)||{ph:1},v=a.q*(t.ph==1?X.vol:X.vc)*a.p/(1+(a.tv??19)/100)*S.par.jours;
+    const vTTC=v*(1+(a.tv??19)/100);
+    T['p:'+i]=fm(v);T['pt:'+i]=fm(vTTC);
+    T['c:'+a.c]=(T['c:'+a.c]||0)+vTTC;
+    tcaHT+=v; tcaTTC+=vTTC;
+  });
+  S.cats.forEach(t=>{
+    const cTTC = T['c:'+t.id]||0;
+    T['c:'+t.id]='CA '+fm(cTTC)+'/mois TTC · '+fm(cTTC*12)+'/an TTC';
+    catCAData.push({name:t.n,val:cTTC});
+  });
+
+  let inv=[0,0],vatInv=[0,0],el=[0,0];G.forEach(g=>{const ph=g[2]-1;const lines=S.cx.filter(x=>x.g==g[0]);const total=lines.reduce((a,x)=>a+x.v,0);T['g:'+g[0]]=fm(lines.reduce((a,x)=>a+x.v*(1+(x.tv??19)/100),0))+' TTC';inv[ph]+=total;lines.forEach(x=>{vatInv[ph]+=x.v*(x.tv??19)/100;if(x.e)el[ph]+=x.v})});
+  Object.assign(T,{tca:fm(tcaTTC)+'/mois TTC · '+fm(tcaTTC*12)+'/an TTC',tcaHT:fm(tcaHT)+'/mois HT',tinv1:fm(inv[0]),tinvTVA1:fm(vatInv[0]),tinvTTC1:fm(inv[0]+vatInv[0]),tinv2ht:fm(inv[1]),tinvTVA2:fm(vatInv[1]),tinvTTC2:fm(inv[1]+vatInv[1]),tinv:fm(inv[0]),tinvTVA:fm(vatInv[0]),tinvTTC:fm(inv[0]+vatInv[0]),tinv2:'Phase 1 · éligible leasing : '+fm(el[0]),tfx:fm(S.fx.reduce((a,x)=>a+x.v,0)),trh:fm(S.rh.reduce((a,x)=>a+x.e*x.s,0))});
+  [1,2].forEach(ph=>{const F=S.fx.filter(x=>x.ph==ph),R_=S.rh.filter(x=>x.ph==ph),b=R_.reduce((a,x)=>a+x.e*x.s,0);T['fx:'+ph]=fm(F.reduce((a,x)=>a+x.v*(1+(x.tv??19)/100),0))+'/mois TTC · HT '+fm(F.reduce((a,x)=>a+x.v,0));T['rh:'+ph]=fm(b*(1+S.par.ch/100))+'/mois chargé · brut '+fm(b)});
+  document.querySelectorAll('[data-tg]').forEach(e=>e.textContent=T[e.dataset.tg]??'');
+
+  const m=M(S,S.act,{}),Y=m.Y,al=[];
+  
+  // KPI generator with TTC priority visual
+  const k=(l,vTTC,s,isDanger=false,isHT=false)=>`<div class="card k"><small>${l}</small><b class="${isDanger?'txt-danger':isHT?'txt-ht':'txt-ttc'}">${vTTC}</b><small>${s||''}</small></div>`;
+
+  $('sb').innerHTML=Object.keys(SCN).map(k=>`<button class="${S.act==k?'on':''}" onclick="setSc('${k}')">${SCN[k]}</button>`).join(' ');
+  $('hv').innerHTML=V_(m)+` <small style="color:var(--m)">besoin non couvert : <span class="${m.bes>0?'txt-danger':''}">${fm(m.bes)}</span></small>`;
+  
+  if(m.cl>m.cap*.9)al.push(`Clients/jour du café simulés (${Math.round(m.cl)}) proches de la capacité (${m.cap}).`);
+  if(Y[2].cg/Y[2].ht>.38)al.push('Coût matière élevé : '+pc(Y[2].cg/Y[2].ht)+' du CA HT.');
+  if(Y[2].sl/Y[2].ht>.38)al.push('Masse salariale élevée : '+pc(Y[2].sl/Y[2].ht)+' du CA HT.');
+  if(Y[2].eb/Y[2].ht>.25)al.push('Marge EBITDA supérieure à 25 % : vérifiez que les ventes sont réalistes.');
+
+  $('vd').innerHTML=`<div class="v ${m.v}">Scénario ${SCN[S.act]} : ${VL[m.v]}${m.bes>0?' · besoin de financement non couvert : <span class="txt-danger">'+fm(m.bes)+'</span>':''}${m.dscr!=null?' · couverture des échéances : '+m.dscr.toFixed(2)+' ×':''}</div>`+al.map(x=>`<div class="note">⚠ ${x}</div>`).join('');
+
+  // Total Leasing calculation
+  const totalLeasingHT = m.lz;
+  const totalLeasingTTC = totalLeasingHT * (1 + (S.par.tva/100));
+
+  $('kp').innerHTML=
+    k('Investissement initial TTC', fm(m.investmentTTC[0]), 'HT : '+fm(m.k[0])+' · TVA : '+fm(m.vatGross[0]))+
+    k('Extension café TTC', fm(m.investmentTTC[1]), 'HT : '+fm(m.k[1])+' · TVA : '+fm(m.vatGross[1]))+
+    k('Besoin initial hors leasing (TTC)', fm(m.I[0]+m.phase1VAT), 'Décaissé à M0 après crédit fournisseur : '+fm(m.need0)+' · apport + crédit phase 1 : '+fm(S.par.apport+S.par.emp))+
+    k('Besoin initial non couvert', fm(Math.max(0,m.need0-S.par.apport-S.par.emp)), 'Trésorerie minimale cible : '+fm(m.reserve), (m.need0-S.par.apport-S.par.emp)>0)+
+    (totalLeasingHT>0 ? k('Total matériel en leasing (TTC)', fm(m.lzT)+' TTC', 'HT : '+fm(totalLeasingHT)+' · loyer/mois TTC : '+fm(m.l[0]*(1+S.par.tva/100))+' (phase 1) · '+fm(m.l[1]*(1+S.par.tva/100))+' (café)') : '')+
+    k('Besoin complémentaire café', fm(m.phase2TreasuryNeed), 'Trésorerie avant ouverture : '+fm(m.cash12)+' · réserve : '+fm(m.reserve))+
+    k('CA TTC An 1 / An 3', fm(Y[0].ttc), 'An 3 : '+fm(Y[2].ttc)+' TTC (HT : '+fm(Y[2].ht)+')')+
+    k('EBITDA An 3 (HT)', fm(Y[2].eb), 'Marge '+pc(Y[2].eb/Y[2].ht),false,true)+
+    k('Résultat net An 3 (après impôt)', fm(Y[2].net), 'An 1 : '+fm(Y[0].net),false,true)+
+    k('Point mort', m.be?'Mois '+m.be:'> 36 mois', 'CA mensuel requis : '+fm(m.pmT)+' TTC'+' · retour : '+(m.pb?m.pb+' mois':'> 36'))+
+    k('TVA collectée (An 1)', fm(Y[0].vc), 'Déductible : '+fm(Y[0].vd)+' · reversée : '+fm(Y[0].vp))+
+    k('Crédit de TVA reporté (fin An 1)', fm(Y[0].cr), 'TVA avancée sur l\'investissement : '+fm(m.vi));
+
+  // Table Trésorerie avec colonne Crédit Fournisseur
+  const cashRows=m.R.map(r=>`<tr><td>M${r.t}</td><td class="ttc">${fm(r.ttc)}</td><td>${fm(r.ht)}</td><td>${fm(r.eb)}</td><td>${fm(r.lease*(1+S.par.tva/100)+r.interest+r.principal)}</td><td>${fm(r.supplierPay||0)}</td><td>${fm(r.tvaPaid)}</td><td>${fm(r.investmentOut)}</td><td>${fm(r.financingIn)}</td><td>${r.tax?fm(r.tax):''}</td><td class="ttc">${fm(r.cash)}</td></tr>`).join('');
+  $('cashTable').innerHTML='<table><thead><tr><th>Mois</th><th class="ttc">CA TTC</th><th>CA HT total</th><th>EBITDA</th><th>Leasing TTC + dette</th><th>Crédit Fournisseur (traites)</th><th>TVA reversée</th><th>Investissement phase 2</th><th>Financement phase 2</th><th>Impôt (fin d’année)</th><th class="ttc">Trésorerie fin de mois</th></tr></thead><tbody><tr><td>M0</td><td colspan="9" style="text-align:left">Départ : apport + crédit − investissement initial M0 (TVA incluse), réserve conservée</td><td class="ttc">'+fm(m.open0)+'</td></tr>'+cashRows+'</tbody></table>';
+
+  // Scenarios compare
+  const ks=Object.keys(SCN),M3=ks.map(x=>M(S,x,{})),row=(l,f)=>`<tr><td>${l}</td>${M3.map(f).map(v=>`<td>${v}</td>`).join('')}</tr>`;
+  $('t3').innerHTML='<table><tr><th></th>'+ks.map(x=>`<th>${SCN[x]}</th>`).join('')+'</tr>'+row('CA TTC an 1',m=>`<b class="tt">${fm(m.Y[0].ttc)}</b>`)+row('CA TTC an 3',m=>`<b class="tt">${fm(m.Y[2].ttc)}</b>`)+row('CA HT an 3',m=>fm(m.Y[2].ht))+row('EBITDA an 3',m=>fm(m.Y[2].eb)+' ('+pc(m.Y[2].eb/m.Y[2].ht)+')')+row('Résultat net an 3',m=>fm(m.Y[2].net))+row('Trésorerie minimale',m=>fm(m.tm))+row('Besoin non couvert',m=>`<span class="${m.bes>0?'txt-danger':''}">${fm(m.bes)}</span>`)+row('Couverture des échéances',m=>m.dscr==null?'—':m.dscr.toFixed(2)+' ×')+row('Point mort',m=>m.be?'Mois '+m.be:'> 36 mois')+row('Verdict',V_)+'</table>';
+
+  const ec=S.par.emp||100000,mx=[['Apport seul',{lp:0,emp:0,lp2:0,emp2:0}],['Apport + leasing',{emp:0,emp2:0}],['Apport + leasing + crédit',{emp:ec}],['Apport + crédit (sans leasing)',{lp:0,lp2:0,emp:ec}]];
+  $('tm').innerHTML='<table><tr><th>Financement</th><th>Besoin non couvert</th><th>Trésorerie min.</th><th>Résultat net an 3</th><th>Couverture</th><th>Verdict</th></tr>'+mx.map(x=>{const q=M(S,S.act,x[1]);return`<tr><td>${x[0]}</td><td class="${q.bes>0?'txt-danger':''}">${fm(q.bes)}</td><td>${fm(q.tm)}</td><td>${fm(q.Y[2].net)}</td><td>${q.dscr==null?'—':q.dscr.toFixed(2)+' ×'}</td><td>${V_(q)}</td></tr>`}).join('')+`</table><p class="note">Crédit simulé : ${fm(ec)} (modifiable dans les leviers ci-dessus). Les lignes « sans crédit » ou « sans leasing » s’appliquent aussi au café.</p>`;
+  $('tv').innerHTML='<table><tr><th></th><th>An 1</th><th>An 2</th><th>An 3</th></tr>'+[['TVA collectée (ventes)','vc'],['TVA déductible (achats, charges, investissement, leasing)','vd'],['TVA reversée à l\'État','vp'],['Crédit de TVA reporté en fin d\'année','cr']].map(r=>`<tr><td>${r[0]}</td>${Y.map(y=>`<td>${fm(y[r[1]])}</td>`).join('')}</tr>`).join('')+'</table><p class="note">La TVA payée à l\'achat n\'est pas remboursée : elle s\'impute sur la TVA collectée des mois suivants, l\'excédent est reporté.</p>';
+
+  if($('fs'))$('fs').innerHTML=`<p>Loyers de leasing : phase 1 ${fm(m.l[0])}/mois · café ${fm(m.l[1])}/mois · crédit phase 1 : ${fm(m.pmt)}/mois · crédit café : ${fm(m.pmt2)}/mois.<br>Besoin hors leasing au démarrage (TTC) : ${fm(m.I[0]+m.phase1VAT)} · apport + crédit phase 1 : ${fm(S.par.apport+S.par.emp)} · écart : <b class="${S.par.apport+S.par.emp>=m.need0?'ok':'ko'}">${fm(S.par.apport+S.par.emp-m.need0)}</b></p><p>Phase café : investissement HT ${fm(m.k[1])} (TTC ${fm(m.investmentTTC[1])}) · leasing dédié ${fm(m.phase2Lease)} · nouveau crédit ${fm(m.phase2Loan)} · besoin complémentaire après trésorerie mobilisable ${fm(m.phase2TreasuryNeed)}.</p>`;
+
+  // Update Charts
+  if(window.Chart){
+    const L=m.R.map(r=>'M'+r.t);
+    
+    // Tab Trésorerie Charts
+    if(!C1){
+      C1=new Chart($('c1'),{type:'line',data:{labels:L,datasets:[{label:'Trésorerie',data:[],borderColor:'#e8a33d',pointRadius:0}]}});
+      C2=new Chart($('c2'),{type:'bar',data:{labels:L,datasets:[{label:'CA TTC',data:[],backgroundColor:'#5fd1a066'},{label:'EBITDA (HT)',data:[],backgroundColor:'#e8a33d'}]}});
+    }
+    C1.data.datasets[0].data=m.R.map(r=>Math.round(r.cash));
+    C2.data.datasets[0].data=m.R.map(r=>Math.round(r.ttc));
+    C2.data.datasets[1].data=m.R.map(r=>Math.round(r.eb));
+    C1.update('none'); C2.update('none');
+
+    // Tab Ventes Charts
+    const catLabels = catCAData.map(c=>c.name);
+    const catValues = catCAData.map(c=>Math.round(c.val));
+    if(!ChartCatPie){
+      ChartCatPie=new Chart($('chartCatPie'),{type:'pie',data:{labels:catLabels,datasets:[{data:catValues,backgroundColor:PAL}]}});
+      ChartCatBar=new Chart($('chartCatBar'),{type:'bar',data:{labels:catLabels,datasets:[{label:'CA TTC / mois',data:catValues,backgroundColor:'#e8a33d'}]}});
+    } else {
+      ChartCatPie.data.labels=catLabels; ChartCatPie.data.datasets[0].data=catValues; ChartCatPie.update('none');
+      ChartCatBar.data.labels=catLabels; ChartCatBar.data.datasets[0].data=catValues; ChartCatBar.update('none');
+    }
+
+    // Tab Synthèse Graphique (Full TTC)
+    if(!SgChartCA){
+      SgChartCA=new Chart($('sgChartCA'),{type:'bar',data:{labels:['Année 1','Année 2','Année 3'],datasets:[{label:'CA TTC (TND)',data:[],backgroundColor:'#5fd1a0'}]}});
+      SgChartCash=new Chart($('sgChartCash'),{type:'line',data:{labels:L,datasets:[{label:'Trésorerie TTC (TND)',data:[],borderColor:'#e8a33d',backgroundColor:'#e8a33d33',fill:true,pointRadius:0}]}});
+      SgChartInv=new Chart($('sgChartInv'),{type:'doughnut',data:{labels:['Inv. Phase 1 TTC','Inv. Phase 2 TTC'],datasets:[{data:[],backgroundColor:['#e8a33d','#5fd1a0']}]}});
+      SgChartCost=new Chart($('sgChartCost'),{type:'pie',data:{labels:['Matières TTC','Salaires','Charges TTC','Leasing TTC','Amort. + intérêts','Impôts + CSS','TVA nette à reverser','Résultat net'],datasets:[{data:[],backgroundColor:PAL}]}});
+    }
+    SgChartCA.data.datasets[0].data = Y.map(y=>Math.round(y.ttc));
+    SgChartCash.data.datasets[0].data = m.R.map(r=>Math.round(r.cash));
+    SgChartInv.data.datasets[0].data = [Math.round(m.investmentTTC[0]), Math.round(m.investmentTTC[1])];
+    
+    const y3=Y[2];SgChartCost.data.datasets[0].data=[y3.cgT,y3.sl,y3.chT,y3.lsT,y3.dp+y3.it,y3.tx+y3.cs,Math.max(0,y3.vc-y3.vo),Math.max(0,y3.net)].map(Math.round);
+
+    SgChartCA.update('none'); SgChartCash.update('none'); SgChartInv.update('none'); SgChartCost.update('none');
+  }
+}
+
+document.addEventListener('input',e=>{const d=e.target.dataset,t=e.target,v=t.type=='checkbox'?+t.checked:t.type=='number'?parseFloat(t.value):t.value;if(t.type=='number'&&isNaN(v))return;
+if(d.a){const o=S[d.a][d.i],f=d.f,tv=1+(o.tv??19)/100;if(f=='ttc')o.v=v/tv;else if(f=='pht')o.p=v*tv;else if(f=='kttc')o.k=v/(1+S.par.tvc/100);else o[f]=f=='t'?t.value:f=='ph'||f=='sc'?+v:v;syn(d.a,d.i,t);if(f=='ph'||f=='c'||f=='b'){rAll();return}}else if(d.p)S.par[d.p]=v;else if(d.s){const[a,b]=d.s.split('.');S.sc[a][b]=v}else return;upd()});
+const r2=x=>+(+x).toFixed(2);
+function syn(a,i,src){const o=S[a][i],tv=1+(o.tv??19)/100,Q={v:o.v,ttc:o.v*tv,p:o.p,pht:o.p/tv,k:o.k,kttc:o.k*(1+S.par.tvc/100)};document.querySelectorAll(`[data-a="${a}"][data-i="${i}"]`).forEach(e=>{const f=e.dataset.f;if(e!==src&&f in Q&&!isNaN(Q[f]))e.value=r2(Q[f])})}
+const DEFN={cx:g=>({g,tv:S.par.tva,n:'Nouvelle ligne',v:0,t:'m',e:G.find(y=>y[0]==g)[3],sc:0}),ca:c=>({c,tv:S.par.tva,n:'Nouveau produit',q:10,p:5,k:1.5}),fx:()=>({tv:S.par.tva,n:'Nouvelle charge',ph:1,v:0}),rh:()=>({n:'Nouveau poste',ph:1,e:1,s:1000})};
+function add(a,g){S[a].push(DEFN[a](g));rAll()}function addPhase(a,ph){const o=a=='fx'?{tv:S.par.tva,n:'Nouvelle charge',ph,v:0}:{n:'Nouveau poste',ph,e:1,s:1000};S[a].push(o);rAll()}function rm(a,i){S[a].splice(i,1);rAll()}
+function addc(){const n=prompt('Nom de la nouvelle catégorie :');if(!n)return;const ph=prompt('Phase (1 = viennoiserie, 2 = café) :','1')=='2'?2:1;S.cats.push({id:'c'+Date.now(),n,ph,b:0});rAll()}
+function rmc(j){if(confirm('Supprimer la catégorie et ses produits ?')){const id=S.cats[j].id;S.ca=S.ca.filter(a=>a.c!=id);S.cats.splice(j,1);rAll()}}
+function setSc(k){S.act=k;upd()}function rAll(){rVe();rEx();rFi();rSc();upd()}
+function rst(){if(confirm('Revenir aux valeurs par défaut ?')){S=JSON.parse(JSON.stringify(D));rAll()}}
+function save(){const m=M(S,S.act,{});if(m.v!='ok'&&!confirm('Verdict : '+VL[m.v]+'.\nBesoin non couvert : '+fm(m.bes)+'.\n\nValider et sauvegarder quand même ?'))return;const n=prompt("Nom de l'estimation :",'Estimation '+(E.length+1));if(!n)return;
+E.push({n,d:new Date().toLocaleDateString('fr-FR'),s:JSON.parse(JSON.stringify(S)),k:Object.keys(SCN).map(x=>{const q=M(S,x,{});return{ca3:q.Y[2].ht,ca3t:q.Y[2].ttc,eb3:q.Y[2].eb,net3:q.Y[2].net,bes:q.bes,v:q.v}})});LS.s('ladoree6.est',E);rE();tab('es')}
+function rE(){$('el').innerHTML=E.length?'<table><tr><th>Nom</th><th>Date</th><th class="ttc">Réaliste : CA TTC an 3</th><th>EBITDA an 3</th><th>Net an 3</th><th>Besoin</th><th>Prudent</th><th>Réaliste</th><th>Ambitieux</th><th></th></tr>'+E.map((e,i)=>`<tr><td>${e.n}</td><td>${e.d}</td><td class="ttc">${e.k[1].ca3t!=null?fm(e.k[1].ca3t):'—'}</td><td>${fm(e.k[1].eb3)}</td><td>${fm(e.k[1].net3)}</td><td class="${e.k[1].bes>0?'txt-danger':''}">${fm(e.k[1].bes)}</td>${e.k.map(q=>`<td class="${q.v}">${VL[q.v]}</td>`).join('')}<td><button onclick="ld(${i})">Charger</button> <button onclick="dl(${i})">Suppr.</button></td></tr>`).join('')+'</table>':'<p class="note">Aucune estimation. Réglez les chiffres puis cliquez sur « Valider et sauvegarder ».</p>'}
+function ld(i){S=mig(JSON.parse(JSON.stringify(E[i].s)));rAll();tab('db')}function dl(i){if(confirm('Supprimer « '+E[i].n+' » ?')){E.splice(i,1);LS.s('ladoree6.est',E);rE()}}
+function dwn(n,t,ty){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([t],{type:ty}));a.download=n;a.click()}
+function expJ(){dwn('estimations_ladoree.json',JSON.stringify(E),'application/json')}function expC(){const m=M(S,S.act,{});dwn('plan_mensuel_ladoree.csv','Mois;CA TTC;CA HT total;EBITDA;Leasing;Credit Fournisseur;Interets;Capital rembourse;TVA reversee;Investissement phase 2;Financement phase 2;Impot;Tresorerie fin de mois\n'+m.R.map(r=>[r.t,r.ttc,r.ht,r.eb,r.lease,r.supplierPay||0,r.interest,r.principal,r.tvaPaid,r.investmentOut,r.financingIn,r.tax||0,r.cash].map(v=>Math.round(v)).join(';')).join('\n'),'text/csv')}
+imp.onchange=e=>{const r=new FileReader();r.onload=()=>{try{const a=JSON.parse(r.result);if(Array.isArray(a)){E=E.concat(a);LS.s('ladoree6.est',E);rE()}}catch(x){alert('Fichier invalide.')}};r.readAsText(e.target.files[0])};
+
+const T=[['db','Tableau de bord'],['tr','Trésorerie'],['ve','Ventes'],['ex','Exploitation'],['sc','Scénarios'],['sg','Synthèse Graphique'],['es','Estimations']];
+$('nav').innerHTML=T.map(t=>`<button data-t="${t[0]}" onclick="tab('${t[0]}')">${t[1]}</button>`).join('');
+function tab(id){document.querySelectorAll('.pane').forEach(p=>p.classList.toggle('on',p.id==id));document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('on',b.dataset.t==id));if(id=='db'||id=='tr'||id=='sg'||id=='ve')upd()}
+const cur=LS.g('ladoree6.cur');function mig(s){s.par={...D.par,...s.par};s.sc={...D.sc,...s.sc};s.cx.forEach(x=>{if(/caution/i.test(x.n))x.tv=0;if(x.sc===undefined)x.sc=0});[...s.fx,...s.rh].forEach(x=>{x.ph=+x.ph==2?2:1});return s}
+if(cur&&cur.cx&&cur.ca)S=mig(cur);E=LS.g('ladoree6.est')||LS.g('ladoree5.est')||[];rAll();rE();tab('db');
+</script></body></html>
